@@ -115,7 +115,7 @@ export class Game {
   }
 
   // ---------- economy ----------
-  deployCost() { return Math.round(10 + this.deploys * 4); }
+  deployCost() { return Math.round(10 + this.deploys * 7); }
   empty() { const e = []; this.slots.forEach((s, i) => { if (!s) e.push(i); }); return e; }
   place(lv, at = -1) {
     const e = this.empty(); if (!e.length) return -1; const i = at >= 0 && !this.slots[at] ? at : e[Math.floor(Math.random() * e.length)];
@@ -147,12 +147,12 @@ export class Game {
     this.addShake(2 + lv * 0.6); SFX.gateGood(); haptic(lv >= 5 ? 'heavy' : 'medium');
     this.hooks.onMerge && this.hooks.onMerge(lv);
   }
-  comboMult() { return 1 + Math.min(4, Math.floor(this.combo / 8) * 0.5); }
+  comboMult() { return 1 + Math.min(2, Math.floor(this.combo / 10) * 0.25); }
 
   // ---------- waves ----------
   buildWave() {
     const N = this.N, w = this.wave, R = this.R; const q = [];
-    const hp = (N === 1 ? 6 : 11) * Math.pow(1.19, N - 1) * (1 + 0.09 * w);
+    const hp = (N === 1 ? 6 : N === 2 ? 11 : 15) * Math.pow(1.17, N - 1) * (1 + 0.09 * w);
     const n = Math.round(7 + N * 0.9 + w * 2.2);
     for (let i = 0; i < n; i++) {
       let t = 'walker'; const r = R();
@@ -184,7 +184,7 @@ export class Game {
     this.scrap += s; this.coins += z.t === 'boss' ? 60 + this.N * 10 : z.t === 'brute' ? 3 : 1;
     this.burst(z.x, z.y, '#6fbf4f', z.t === 'boss' ? 60 : z.t === 'brute' ? 20 : 8, z.t === 'boss' ? 380 : 180); this.burst(z.x, z.y, '#9b1c1c', 5, 120);
     if (z.t === 'boss' || z.t === 'brute') { this.addShake(z.t === 'boss' ? 14 : 4); SFX.boom(); haptic('heavy'); this.pop(z.x, z.y - 20, '+' + s, '#facc15', 22); } else SFX.kill();
-    if (this.combo % 8 === 0) { this.pop(200, this.wallY - 40, `COMBO ×${this.comboMult().toFixed(1)}`, '#facc15', 24); haptic('light'); }
+    if (this.combo % 10 === 0) { this.pop(200, this.wallY - 40, `COMBO ×${this.comboMult().toFixed(1)}`, '#facc15', 24); haptic('light'); }
   }
   collectDrop(d) {
     d.dead = true; const k = d.k; SFX.power(); haptic('medium'); this.burst(d.x, d.y, '#facc15', 18, 220);
@@ -260,7 +260,7 @@ export class Game {
       s.cd -= dt; if (!live.length) continue;
       const p = this.slotPos(i);
       // target: closest to wall
-      let tg = null; for (const z of live) if (!z.dead && z.y > -10 && (!tg || z.y > tg.y)) tg = z; if (!tg) continue;
+      const range = 290 + s.lv * 22; let tg = null; for (const z of live) if (!z.dead && z.y > -10 && (!tg || z.y > tg.y) && Math.hypot(z.x - p.x, z.y - p.y) < range) tg = z; if (!tg) continue;
       const want = Math.atan2(tg.y - p.y, tg.x - p.x); s.ang += (want - s.ang) * Math.min(1, dt * 18);
       if (s.cd > 0) continue;
       const T = TIERS[s.lv]; s.cd = 1 / (T.rate * rateMult); s.kick = 1;
@@ -402,7 +402,7 @@ export class Game {
     for (const p of this.parts) { c.globalAlpha = Math.max(0, 1 - p.t / p.life); c.fillStyle = p.col; c.fillRect(p.x - p.r, p.y - p.r, p.r * 2, p.r * 2); }
     c.globalAlpha = 1;
     if (this.frenzy > 0) { c.fillStyle = `rgba(244,114,182,${0.08 + Math.sin(this.t * 12) * 0.04})`; c.fillRect(0, 0, W, H); }
-    if (this.combo >= 8) { c.font = '900 16px system-ui'; c.textAlign = 'left'; c.fillStyle = '#facc15'; c.fillText(`COMBO ×${this.comboMult().toFixed(1)}  (${this.combo})`, 12, wy - 30); }
+    if (this.combo >= 10) { c.font = '900 16px system-ui'; c.textAlign = 'left'; c.fillStyle = '#facc15'; c.fillText(`COMBO ×${this.comboMult().toFixed(1)}  (${this.combo})`, 12, wy - 30); }
     c.textAlign = 'center'; c.textBaseline = 'middle';
     for (const p of this.pops) {
       const k = p.t < 0.12 ? p.t / 0.12 : 1; const s = p.size * (0.6 + 0.6 * k - 0.2 * Math.max(0, p.t - 0.12));

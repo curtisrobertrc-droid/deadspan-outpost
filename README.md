@@ -20,6 +20,6 @@ More from Deadspan Arcade: [Deadspan](https://curtisrobertrc-droid.github.io/dea
 
 ## Dev
 - `?bot=1` self-play bot (auto deploy, merge, pick perks), used for balancing, screenshots and clips. `?devads=1` previews ad buttons with a fake ad.
-- Balance (bot that buys upgrades with its coins, up to 10 tries per night): a fast bot clears nights 1–20 at the first attempt and first stalls at night 21. A slower, human-paced bot (1.5 s reactions, ignores supply drops) first takes damage around night 11–16 and stalls at night 18.
+- Balance (phone-size viewport, bot that buys upgrades with its coins, up to 10 tries per night): a fast bot clears nights 1–17 at the first attempt, needs 6 tries on boss night 18 and stalls at boss night 21. A slower, human-paced bot (1.5 s reactions, ignores supply drops) starts losing wall around night 12, needs retries on nights 15–16 and stalls at boss night 18.
 - Shared shell with Deadspan: `platform.js`, `ads.js`, `payments.js`, `audio.js`. All art is drawn in code and all sound is synthesised, with no third-party assets.
 - Run locally: `python3 -m http.server 8000`
