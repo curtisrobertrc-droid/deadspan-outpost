@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Deadspan: Outpost, the merge tower defence</title>
+<meta name="description" content="Deadspan: Outpost: a free zombie merge tower defence. Deploy turrets, drag matching ones together to merge them up, pick perks and hold the wall until dawn. Plays in Telegram or any browser.">
+<meta name="theme-color" content="#14121c">
+<meta property="og:title" content="Deadspan: Outpost">
+<meta property="og:description" content="Merge turrets. Hold the wall. Survive the night.">
+<meta property="og:image" content="assets/cover.png">
+<link rel="icon" href="assets/icon.svg">
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="wrap"><canvas id="cv"></canvas></div>
+
+<section id="menu" class="screen">
+  <div class="top"><span class="pill">🪙 <b id="menuCoins">0</b></span><button id="btnSound" class="ghost">🔊</button></div>
+  <div class="logo">DEAD<span>SPAN</span><span class="sub">OUTPOST</span></div>
+  <div class="tag">Merge turrets. Hold the wall. Survive the night.</div>
+  <div class="lvl">NIGHT <b id="menuLevel">1</b><small id="menuBoss"></small></div>
+  <button id="btnPlay" class="big">DEFEND ▶</button>
+  <div class="row">
+    <button id="btnShop">🛠 Upgrades</button>
+    <button id="btnDaily">🎁 Daily<i id="dailyDot"></i></button>
+    <button id="btnInvite">👥 Invite</button>
+  </div>
+  <div class="how">Tap DEPLOY for turrets · Drag two of the same number together to merge · Tap supply drops</div>
+  <div id="moreGames"></div>
+  <footer><a href="privacy.html">Privacy</a> · <a href="credits.html">Credits</a></footer>
+</section>
+
+<section id="hud" class="screen">
+  <div class="hbar"><span id="hudLevel">NIGHT 1</span><span class="pill">🪙 <b id="hudCoins">0</b></span></div>
+  <div class="prog"><div id="hudBar"></div></div>
+  <div id="hudWeapon" class="scrap">🔩 <b id="hudScrap">0</b> scrap</div>
+  <div class="dock"><button id="btnDeploy">DEPLOY TURRET<small id="deployCost">🔩 10</small></button></div>
+</section>
+<div id="waveBanner"></div>
+
+<section id="result" class="screen">
+  <div class="card">
+    <h1 id="resTitle">SURVIVED!</h1>
+    <p id="resSub"></p>
+    <div class="coins">🪙 <b id="resCoins">+0</b></div>
+    <button id="btnDouble" class="ad">▶ Watch ad: DOUBLE coins</button>
+    <button id="btnRevive" class="ad">▶ Watch ad: REBUILD wall</button>
+    <button id="btnNext" class="big">NEXT ▶</button>
+    <button id="btnMenu" class="ghost">Menu</button>
+  </div>
+</section>
+
+<div id="perk" class="modal"><div class="sheet">
+  <h2>Choose a perk</h2>
+  <div id="perkList" class="perks"></div>
+</div></div>
+
+<div id="shop" class="modal"><div class="sheet">
+  <h2>Upgrades <span class="pill">🪙 <b id="shopCoins">0</b></span></h2>
+  <div id="upList"></div>
+  <h3>Telegram Stars</h3>
+  <div id="starList"></div>
+  <button class="ghost" data-close>Close</button>
+</div></div>
+
+<div id="daily" class="modal"><div class="sheet">
+  <h2>Daily supply drop</h2>
+  <div id="dailyDays" class="days"></div>
+  <div id="dailyAmt" class="coins"></div>
+  <button id="btnClaim" class="big">CLAIM</button>
+  <button id="btnClaim2" class="ad">▶ Watch ad: claim ×2</button>
+  <button class="ghost" data-close>Close</button>
+</div></div>
+
+<div id="toast"></div>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
