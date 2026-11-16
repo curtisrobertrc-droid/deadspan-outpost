@@ -3,7 +3,8 @@ import { initPlatform, inTelegram, loadLocal, loadCloud, save, haptic, startPara
 import { Ads } from './ads.js';
 import { Payments } from './payments.js';
 import { setSound, unlockAudio, SFX } from './audio.js';
-import { Game, fmt, nightInfo, PERKS, TIERS } from './game.js';
+import { Game, fmt, nightInfo, PERKS, TIERS } from './game.js?v2';
+import { loadAssets } from './assets.js?v2';
 
 initPlatform();
 const $ = s => document.querySelector(s);
@@ -140,5 +141,9 @@ document.addEventListener('visibilitychange', () => game.pause(document.hidden))
 if (inTelegram && window.Telegram.WebApp.onEvent) window.Telegram.WebApp.onEvent('viewportChanged', () => game.resize());
 Ads.preload();
 Payments.claim().then(c => { if (c > 0) { S.coins += c; persist(); refresh(); toast(`Purchase delivered: +${fmt(c)} coins`); } });
-refresh(); show('menu');
-if (AUTOPLAY) setTimeout(play, 400);
+refresh();
+window.__fps = () => game.fps;
+loadAssets(p => { $('#loadFill').style.width = Math.round(p * 100) + '%'; }).then(() => {
+  game.bg = null; show('menu');
+  if (AUTOPLAY) setTimeout(play, 400);
+});
