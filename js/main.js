@@ -1,5 +1,5 @@
 import { CFG, AUTOPLAY, DEVOK } from './config.js';
-import { IS_PORTAL, TARGET, gameplay, loadingDone, PortalAds, onAdMute } from './portal.js';
+import { IS_PORTAL, TARGET, gameplay, loadingDone, PortalAds, onAdMute, portalScore } from './portal.js?v2';
 import { tg, initPlatform, inTelegram, loadLocal, loadCloud, save, haptic, startParam, shareInvite, userId } from './platform.js';
 import { Ads } from './ads.js';
 import { Payments } from './payments.js';
@@ -7,7 +7,7 @@ import { setSound, setAdMute, unlockAudio, SFX } from './audio.js';
 onAdMute(setAdMute);
 import { Game, fmt, nightInfo, PERKS, TIERS } from './game.js?v8';
 import { loadAssets } from './assets.js?v7';
-import { createMeta } from './meta.js?v8';
+import { createMeta } from './meta.js?v10';
 import { CATALOG, CATS, applyTo } from './catalog.js?v7';
 
 initPlatform();
@@ -53,7 +53,7 @@ const net = {
   post: (path, body) => fetch(CFG.BACKEND_URL + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ initData: tg.initData }, body)) }).then(r => r.json()),
 };
 const CAT_BY_ID = Object.fromEntries(CATALOG.map(i => [i.id, i]));
-const meta = createMeta({ getS: () => S, persist, game: 'outpost', catalog: CATALOG, cats: CATS, toast: m => toast(m), fmt, sfx: () => SFX.coin(),
+const meta = createMeta({ portal: IS_PORTAL, getS: () => S, persist, game: 'outpost', catalog: CATALOG, cats: CATS, toast: m => toast(m), fmt, sfx: () => SFX.coin(),
   apply: eq => applyTo(game, eq, CAT_BY_ID), net, refresh: () => refresh(), metricLabel: v => `Night ${Math.floor(v / 10000)} · ${fmt(v % 10000)} pts` });
 if (DEVOK) window.__meta = meta;
 
@@ -125,7 +125,8 @@ function showResult(r) {
   $('#resCoins').textContent = '+' + fmt(r.coins);
   meta.addXp(r.kills * 0.5 + (r.win ? 40 + r.N * 2 : 10));
   { const cleared = r.win ? r.N : r.N - 1, pts = Math.min(9999, r.kills * 3 + (r.tier || 0) * 100);
-    if (cleared > 0) meta.recordRun(cleared * 10000 + pts, cleared, { kills: r.kills, win: r.win, dur: Math.round(game.t - (game.runT0 || 0)), ref: refBy() }); }
+    if (cleared > 0 && IS_PORTAL) portalScore(cleared * 10000 + pts);
+  if (cleared > 0) meta.recordRun(cleared * 10000 + pts, cleared, { kills: r.kills, win: r.win, dur: Math.round(game.t - (game.runT0 || 0)), ref: refBy() }); }
   const earned = r.coins; let collected = false;
   const collect = mult => { if (collected) return; collected = true; S.coins += earned * mult; if (r.win) { S.night = r.N + 1; S.best = Math.max(S.best, r.N); } persist(); refresh(); };
   const adBtn = $('#btnDouble'), revBtn = $('#btnRevive');

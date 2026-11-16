@@ -78,3 +78,16 @@ export const PortalAds = {
     if (poki && plays > 1) { ev('commercialBreak'); adBegin(); try { await poki.commercialBreak(() => {}); } catch (e) {} finally { adEnd(); } }
   },
 };
+
+// CrazyGames leaderboard (invite-only; one board per game; weekly seasons run by CrazyGames).
+// Inert until build_portals.py is run with CG_LB_KEY_<GAME> (the 32-byte base64 encryption key from the CrazyGames dev portal).
+export async function portalScore(score) {
+  if (!cg || !window.CG_LB_KEY || !cg.user || !cg.user.submitScore) return;
+  try {
+    const iv = crypto.getRandomValues(new Uint8Array(12)), alg = { name: 'AES-GCM', iv };
+    const key = await crypto.subtle.importKey('raw', Uint8Array.from(atob(window.CG_LB_KEY), c => c.charCodeAt(0)), alg, false, ['encrypt']);
+    const enc = new Uint8Array(await crypto.subtle.encrypt(alg, key, new TextEncoder().encode(String(score))));
+    const all = new Uint8Array(iv.length + enc.length); all.set(iv); all.set(enc, iv.length);
+    cg.user.submitScore({ encryptedScore: btoa(String.fromCharCode(...all)), score }); ev('submitScore');
+  } catch (e) { /* never let a leaderboard error touch gameplay */ }
+}

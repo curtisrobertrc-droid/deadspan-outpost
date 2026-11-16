@@ -141,11 +141,11 @@ export function createMeta(o) {
     } else if (tab === 'pass') {
       const P = pass(), t = tierOf(P.xp), into = P.xp - t * XP_TIER, end = new Date(Date.UTC(+P.s.slice(0, 4), +P.s.slice(5), 1)), days = Math.max(0, Math.ceil((end - Date.now()) / 864e5));
       body.appendChild(el(`<div class="collbar"><span>Tier ${t}/${TIERS} · ${t >= TIERS ? 'MAX' : into + '/' + XP_TIER + ' XP'} · season ends in ${days}d</span><div><i style="width:${t >= TIERS ? 100 : (into / XP_TIER * 100).toFixed(1)}%"></i></div></div>`));
-      body.appendChild(el(`<p class="note">Earn XP by playing. Free rewards for everyone. ${P.premium ? 'Premium track unlocked, thanks for the support!' : o.net && o.net.enabled() ? 'The premium track (Telegram Stars, in Shop) is cosmetic-only.' : 'The premium track (Telegram Stars) is coming soon and is cosmetic-only.'}</p>`));
-      const grid = el('<div class="pass"></div>'); body.appendChild(grid);
+      body.appendChild(el(`<p class="note">Earn XP by playing. Free rewards for everyone. ${o.portal ? 'A new season with new rewards starts every month.' : P.premium ? 'Premium track unlocked, thanks for the support!' : o.net && o.net.enabled() ? 'The premium track (Telegram Stars, in Shop) is cosmetic-only.' : 'The premium track (Telegram Stars) is coming soon and is cosmetic-only.'}</p>`));
+      const grid = el(`<div class="pass ${o.portal ? 'one' : ''}"></div>`); body.appendChild(grid);
       for (let k = 1; k <= TIERS; k++) {
         const row = el(`<div class="tier ${k <= t ? 'got' : ''}"><b>${k}</b></div>`);
-        for (const tr of ['free', 'prem']) {
+        for (const tr of o.portal ? ['free'] : ['free', 'prem']) {
           const r = tierReward(k, tr), done = P[tr].includes(k), can = k <= t && !done && (tr === 'free' || P.premium);
           const lab = r.item ? `${swatch(byId[r.item])}<span>${byId[r.item].name}</span>` : `<span>🪙 ${fmt(r.coins)}</span>`;
           const c = el(`<button class="rw ${tr} ${done ? 'done' : ''} ${can ? 'can' : ''}" ${can ? '' : 'disabled'}>${tr === 'prem' && !P.premium ? '🔒 ' : ''}${lab}${done ? '<i>✓</i>' : ''}</button>`);
@@ -158,10 +158,12 @@ export function createMeta(o) {
   let board = 'day';
   async function renderRanks(body) {
     const tabs = el('<div class="tabs sm"></div>'); body.appendChild(tabs);
-    for (const [k, n] of [['day', 'Today'], ['week', 'This week'], ['all', 'All-time'], ['friends', 'Friends']]) { const b = el(`<button class="tab ${board === k ? 'on' : ''}">${n}</button>`); b.onclick = () => { board = k; render(); }; tabs.appendChild(b); }
+    if (o.portal && board === 'friends') board = 'day';
+    for (const [k, n] of [['day', 'Today'], ['week', 'This week'], ['all', 'All-time'], ['friends', 'Friends']].filter(x => !o.portal || x[0] !== 'friends')) { const b = el(`<button class="tab ${board === k ? 'on' : ''}">${n}</button>`); b.onclick = () => { board = k; render(); }; tabs.appendChild(b); }
     const mine = board === 'day' ? (PB.day.k === dayKey() ? PB.day.v : 0) : board === 'week' ? (PB.week.k === weekKey() ? PB.week.v : 0) : PB.all;
     body.appendChild(el(`<div class="pbrow"><span>Your best ${board === 'day' ? 'today' : board === 'week' ? 'this week' : board === 'friends' ? 'ever' : 'ever'}</span><b>${mine ? o.metricLabel(mine) : '—'}</b></div>`));
     const list = el('<div class="lb"></div>'); body.appendChild(list);
+    if (o.portal) { list.appendChild(el(`<div class="pbrow"><span>Runs played</span><b>${fmt(PB.runs || 0)}</b></div>`)); list.appendChild(el('<p class="note">Beat your own records: today, this week and all-time.</p>')); return; }
     if (!o.net || !o.net.enabled()) {
       list.appendChild(el(`<p class="note">🏆 Global and friends leaderboards are coming soon. Your personal bests are saved now. Top players each week will win coins and exclusive badges.</p>`));
       return;
@@ -175,7 +177,7 @@ export function createMeta(o) {
         list.appendChild(el(`<div class="lbr ${e.me ? 'me' : ''}"><span class="rk">${n + 1}</span><span class="nm" style="${fr && fr.c ? 'border-color:' + (Array.isArray(fr.c) ? fr.c[0] : fr.c) : ''}">${esc(e.name)}${ti && ti.r !== 'free' ? `<small>${esc(ti.name)}</small>` : ''}</span><b>${o.metricLabel(e.score)}</b></div>`));
       });
       if (r.me && r.me.rank > r.top.length) list.appendChild(el(`<div class="lbr me"><span class="rk">${r.me.rank}</span><span class="nm">You</span><b>${o.metricLabel(r.me.score)}</b></div>`));
-      if (board === 'week') list.appendChild(el(`<p class="note">Weekly rewards (paid out Monday): #1 5,000 🪙 + Gold badge · #2–3 3,000 🪙 + Silver · #4–10 1,500 🪙 + Bronze · top 100 500 🪙. No cash prizes.</p>`));
+      if (board === 'week') list.appendChild(el(`<p class="note">Weekly rewards (paid out Monday): #1 15,000 🪙 + Gold frame &amp; Champion title · #2–3 5,000 🪙 + Silver frame · #4–10 1,500 🪙 + Bronze frame · top 100 500 🪙 + Top 100 frame. In-game rewards only.</p>`));
       if (board === 'friends' && r.top.length < 2) list.appendChild(el('<p class="note">Invite friends with your link to compete with them here.</p>'));
     } catch (e) { list.innerHTML = '<p class="note">Leaderboard unavailable right now.</p>'; }
   }

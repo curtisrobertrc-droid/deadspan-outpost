@@ -1,7 +1,7 @@
 // Rewarded ads. AdsGram integration is ready but disabled until CFG.ADSGRAM_BLOCK_ID is set.
 import { CFG, DEV_FAKE_ADS } from './config.js';
 import { inTelegram } from './platform.js';
-import { IS_PORTAL, PortalAds } from './portal.js';
+import { IS_PORTAL, PortalAds } from './portal.js?v2';
 
 let controller = null, loading = null;
 function loadSdk() {
