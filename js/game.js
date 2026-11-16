@@ -1,8 +1,12 @@
 // Deadspan: Outpost: merge tower defence. Plain canvas. v2: sprite art (shared with Deadspan), procedural fallback.
 import { AUTOPLAY } from './config.js';
 import { IMG, BG, pick } from './assets.js?v7';
-import { haptic } from './platform.js';
-import { SFX } from './audio.js';
+import { haptic as _haptic } from './platform.js';
+import { SFX as _SFX } from './audio.js';
+/* fairness check: the night is fast-forwarded silently once before play (SIM), see fairScale() */
+let SIM = false;
+const SFX = new Proxy(_SFX, { get: (t, k) => SIM ? () => {} : t[k] });
+const haptic = (...a) => SIM ? 0 : _haptic(...a);
 
 const W = 400, COLS = 5, ROWS = 3, MAXLV = 8;
 const BGW = 540, BGH = 960, BG_EDGE = 0.652;
@@ -101,18 +105,37 @@ export class Game {
     this.cv.addEventListener('pointerup', up); this.cv.addEventListener('pointercancel', () => this.drag = null);
   }
 
-  setupNight(N, up, opts) {
-    this.N = N; this.up = up; this.info = nightInfo(N);
+  setupNight(N, up, opts, scale = {}) {
+    this.N = N; this.up = up; this.info = nightInfo(N); this.scale = scale;
     this.slots = new Array(COLS * ROWS).fill(null);
     this.wallMax = 30 + 8 * (up.armor || 0); this.wall = this.wallMax;
     this.scrap = 30 + 15 * (up.scrap || 0); this.deploys = 0; this.coins = 0; this.kills = 0;
-    this.wave = 0; this.spawnQ = []; this.spawnT = 0; this.waveGap = 2.2; this.perks = {}; this.perkLog = [];
+    this.wave = 0; this.spawnQ = []; this.spawnT = 0; this.waveGap = 2.2; this.perks = {}; this.perkLog = []; this.perkShownFor = 0;
     this.combo = 0; this.comboT = 0; this.frenzy = 0; this.dropT = 6; this.over = false; this.bestTier = 1;
     this.zs.length = 0; this.shots.length = 0; this.fx.length = 0; this.parts.length = 0; this.pops.length = 0; this.drops.length = 0; this.blobs.length = 0;
     this.R = mulberry(N * 104729 + 7);
     this.place(Math.min(5, 1 + Math.floor((N - 1) / 4))); this.place(1);
   }
-  start(N, up) { this.setupNight(N, up); this.state = 'play'; this.last = performance.now(); }
+  start(N, up) { const sc = this.fairScale(N, up); this.setupNight(N, up, {}, sc); this.state = 'play'; this.last = performance.now(); }
+  /* Never-impossible check: a handicapped bot (slow, misses drops, -30% damage) plays the night silently.
+     Each loss eases the wave it died on (and a little after) until it survives twice in a row. Cached per night + upgrades. */
+  fairScale(N, up) {
+    const key = N + '|' + JSON.stringify(up || {}); this._fc = this._fc || {}; if (this._fc[key]) return this._fc[key];
+    const t0 = performance.now(), sc = { w: {}, boss: 1 }, save = { t: this.t, delay: this.botDelay, nd: this.botNoDrops, cos: this.cos };
+    let ok = 0, pass = 0; SIM = true;
+    try {
+      while (ok < 2 && pass < 24) {
+        pass++; this.setupNight(N, up, {}, sc); this.state = 'play'; this.botDelay = 0.4; this.botNoDrops = true; this.botT = 0; this._hc = 0.7;
+        let steps = 0; while (!this.over && steps < 30 * 600) { if (this.state === 'perk') this.resumeFromPerk(this._simPerk); this.autopilot(); this.update(1 / 30); steps++; }
+        if (this.over && this.wall > 0) { ok++; continue; }
+        ok = 0; const w = Math.max(1, this.wave);
+        if (w === this.info.waves && this.info.boss && this.zs.some(z => z.t === 'boss')) sc.boss *= 0.55;
+        for (let k = w; k <= this.info.waves; k++) sc.w[k] = (sc.w[k] || 1) * (k === w ? 0.7 : 0.9);
+      }
+    } finally { SIM = false; this._hc = 1; this.t = save.t; this.botDelay = save.delay; this.botNoDrops = save.nd; this.state = 'idle'; this.shake = 0; }
+    if (window.__fairDebug) console.log('fair', N, pass, JSON.stringify(sc), Math.round(performance.now() - t0) + 'ms');
+    return (this._fc[key] = sc);
+  }
   pause(v) { if (this.state === 'play' && v) this.state = 'paused'; else if (this.state === 'paused' && !v) { this.state = 'play'; this.last = performance.now(); } }
   resumeFromPerk(id) {
     this.perks[id] = (this.perks[id] || 0) + 1; this.perkLog.push(id);
@@ -153,22 +176,23 @@ export class Game {
     const p = this.slotPos(to); this.burst(p.x, p.y, TIERS[lv].col, 26, 260); this.burst(p.x, p.y, '#fff', 8, 160);
     this.pop(p.x, p.y - 36, `${TIERS[lv].name.toUpperCase()}!`, TIERS[lv].col, 22 + lv * 1.5);
     this.addShake(2 + lv * 0.6); SFX.gateGood(); haptic(lv >= 5 ? 'heavy' : 'medium');
-    this.hooks.onMerge && this.hooks.onMerge(lv);
+    !SIM && this.hooks.onMerge && this.hooks.onMerge(lv);
   }
   comboMult() { return 1 + Math.min(2, Math.floor(this.combo / 10) * 0.25); }
 
   // ---------- waves ----------
   buildWave() {
     const N = this.N, w = this.wave, R = this.R; const q = [];
-    const hp = (N === 1 ? 6 : N === 2 ? 11 : 15) * Math.pow(1.17, N - 1) * (1 + 0.09 * w);
-    const n = Math.round(7 + N * 0.9 + w * 2.2);
+    const sw = (this.scale && this.scale.w && this.scale.w[w]) || 1;
+    const hp = (N === 1 ? 6 : N === 2 ? 11 : 15) * Math.pow(1.17, N - 1) * (1 + 0.09 * w) * sw;
+    const n = Math.max(4, Math.round((7 + N * 0.9 + w * 2.2) * Math.sqrt(sw)));
     for (let i = 0; i < n; i++) {
       let t = 'walker'; const r = R();
       if (N >= 2 && r < 0.22) t = 'runner'; else if (N >= 3 && w >= 2 && r < 0.3 + Math.min(N, 20) * 0.004) t = 'brute'; else if (N >= 3 && r < 0.4) t = 'spitter';
       q.push({ t, hp, delay: (i === 0 ? 0 : rnd(0.25, 0.75) * (t === 'brute' ? 1.6 : 1)) * Math.max(0.5, 1 - N * 0.02) });
     }
-    if (w === this.info.waves && this.info.boss) q.push({ t: 'boss', hp: hp * (40 + N * 4), delay: 1.5 });
-    if (w === this.info.waves && !this.info.boss) for (let i = 0; i < 6 + N; i++) q.push({ t: R() < 0.5 ? 'runner' : 'walker', hp, delay: 0.12 }); // final rush
+    if (w === this.info.waves && this.info.boss) q.push({ t: 'boss', hp: hp * (40 + N * 4) * ((this.scale && this.scale.boss) || 1), delay: 1.5 });
+    if (w === this.info.waves && !this.info.boss) for (let i = 0; i < Math.round((6 + N) * Math.sqrt(sw)); i++) q.push({ t: R() < 0.5 ? 'runner' : 'walker', hp, delay: 0.12 }); // final rush
     return q;
   }
   spawn(s) {
@@ -177,8 +201,8 @@ export class Game {
   }
 
   // ---------- fx ----------
-  pop(x, y, txt, col = '#fff', size = 18) { if (this.pops.length > 40) this.pops.shift(); this.pops.push({ x, y, txt, col, size, t: 0 }); }
-  burst(x, y, col, n = 8, sp = 160) { for (let i = 0; i < n && this.parts.length < 380; i++) { const a = Math.random() * 6.283, s = rnd(sp * 0.3, sp); this.parts.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: rnd(0.3, 0.7), t: 0, col, r: rnd(1.5, 3.5) }); } }
+  pop(x, y, txt, col = '#fff', size = 18) { if (SIM) return; if (this.pops.length > 40) this.pops.shift(); this.pops.push({ x, y, txt, col, size, t: 0 }); }
+  burst(x, y, col, n = 8, sp = 160) { if (SIM) return; for (let i = 0; i < n && this.parts.length < 380; i++) { const a = Math.random() * 6.283, s = rnd(sp * 0.3, sp); this.parts.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: rnd(0.3, 0.7), t: 0, col, r: rnd(1.5, 3.5) }); } }
   addShake(v) { this.shake = Math.min(14, this.shake + v); }
 
   hurt(z, d, crit) {
@@ -203,8 +227,8 @@ export class Game {
     else if (k === 'repair') { this.wall = Math.min(this.wallMax, this.wall + 8); this.pop(d.x, d.y, '+8 WALL', '#4ade80', 22); }
   }
 
-  lose() { if (this.over) return; this.over = true; this.state = 'end'; SFX.lose(); haptic('error'); this.addShake(12); setTimeout(() => this.hooks.onEnd({ win: false, N: this.N, coins: this.coins, kills: this.kills, wave: this.wave, waves: this.info.waves, tier: this.bestTier }), 800); }
-  win() { if (this.over) return; this.over = true; this.state = 'end'; SFX.win(); haptic('success'); const bonus = 40 + this.N * 12 + (this.info.boss ? 80 + this.N * 10 : 0) + Math.round(this.wall / this.wallMax * 30); this.coins += bonus; const bn = (this.cos && this.cos.banner) || {}; this.pop(200, this.wallY - 120, bn.t || 'DAWN!', bn.c || '#facc15', 44); this.burst(200, this.wallY - 60, '#facc15', 40, 300); setTimeout(() => this.hooks.onEnd({ win: true, N: this.N, coins: this.coins, bonus, kills: this.kills, wave: this.wave, waves: this.info.waves, tier: this.bestTier, wallPct: this.wall / this.wallMax }), 1000); }
+  lose() { if (this.over) return; this.over = true; this.state = 'end'; SFX.lose(); haptic('error'); this.addShake(12); if (SIM) return; setTimeout(() => this.hooks.onEnd({ win: false, N: this.N, coins: this.coins, kills: this.kills, wave: this.wave, waves: this.info.waves, tier: this.bestTier }), 800); }
+  win() { if (this.over) return; this.over = true; this.state = 'end'; SFX.win(); haptic('success'); const bonus = 40 + this.N * 12 + (this.info.boss ? 80 + this.N * 10 : 0) + Math.round(this.wall / this.wallMax * 30); this.coins += bonus; if (SIM) return; const bn = (this.cos && this.cos.banner) || {}; this.pop(200, this.wallY - 120, bn.t || 'DAWN!', bn.c || '#facc15', 44); this.burst(200, this.wallY - 60, '#facc15', 40, 300); setTimeout(() => this.hooks.onEnd({ win: true, N: this.N, coins: this.coins, bonus, kills: this.kills, wave: this.wave, waves: this.info.waves, tier: this.bestTier, wallPct: this.wall / this.wallMax }), 1000); }
 
   // ---------- update ----------
   update(dt) {
@@ -217,7 +241,7 @@ export class Game {
     for (const g of this.ghosts) g.t += dt; if (this.ghosts.length) this.ghosts = this.ghosts.filter(g => g.t < 0.22);
     this.shake *= Math.pow(0.02, dt);
     if (this.state !== 'play') return;
-    if (AUTOPLAY) this.autopilot();
+    if (AUTOPLAY && !SIM) this.autopilot();
 
     // waves
     if (!this.spawnQ.length && !this.zs.length) {
@@ -226,7 +250,7 @@ export class Game {
         if (this.wave >= this.info.waves) { this.win(); return; }
         if (this.wave > 0 && this.wave % 3 === 0 && !this.perkShownFor) { this.perkShownFor = this.wave; this.offerPerks(); return; }
         this.perkShownFor = 0; this.wave++; this.spawnQ = this.buildWave(); this.spawnT = 0.3; this.waveGap = 2.0;
-        this.hooks.onWave && this.hooks.onWave(this.wave, this.info.waves, this.wave === this.info.waves && this.info.boss);
+        !SIM && this.hooks.onWave && this.hooks.onWave(this.wave, this.info.waves, this.wave === this.info.waves && this.info.boss);
       }
     }
     if (this.spawnQ.length) { this.spawnT -= dt; while (this.spawnQ.length && this.spawnT <= 0) { const s = this.spawnQ.shift(); this.spawn(s); this.spawnT += (this.spawnQ[0] ? this.spawnQ[0].delay : 0); } }
@@ -260,7 +284,7 @@ export class Game {
     this.blobs = this.blobs.filter(b => !b.dead);
 
     // turrets fire
-    const dmgMult = (1 + 0.15 * (this.up.dmg || 0)) * (1 + 0.25 * (this.perks.dmg || 0));
+    const dmgMult = (1 + 0.15 * (this.up.dmg || 0)) * (1 + 0.25 * (this.perks.dmg || 0)) * (this._hc || 1);
     const rateMult = (1 + 0.2 * (this.perks.rate || 0)) * (this.frenzy > 0 ? 2 : 1);
     const crit = 0.15 * (this.perks.crit || 0);
     const live = this.zs.filter(z => !z.dead);
@@ -310,6 +334,7 @@ export class Game {
   offerPerks() {
     const keys = Object.keys(PERKS).filter(k => !(k === 'free' && !this.empty().length));
     const pick = []; while (pick.length < 3 && keys.length) pick.push(keys.splice(Math.floor(Math.random() * keys.length), 1)[0]);
+    if (SIM) { const pri = ['dmg', 'rate', 'free', 'crit', 'repair', 'luck', 'scrap', 'slow']; this._simPerk = pick.sort((a, b) => pri.indexOf(a) - pri.indexOf(b))[0]; this.state = 'perk'; return; }
     this.state = 'perk'; SFX.power(); this.hooks.onPerk(pick);
   }
   revive() {
