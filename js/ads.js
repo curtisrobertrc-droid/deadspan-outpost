@@ -1,6 +1,7 @@
 // Rewarded ads. AdsGram integration is ready but disabled until CFG.ADSGRAM_BLOCK_ID is set.
 import { CFG, DEV_FAKE_ADS } from './config.js';
 import { inTelegram } from './platform.js';
+import { IS_PORTAL, PortalAds } from './portal.js';
 
 let controller = null, loading = null;
 function loadSdk() {
@@ -16,10 +17,11 @@ function loadSdk() {
 
 export const Ads = {
   // AdsGram only serves inside Telegram, so real ads are only offered there.
-  available() { return (!!CFG.ADSGRAM_BLOCK_ID && inTelegram) || DEV_FAKE_ADS; },
-  async preload() { if (CFG.ADSGRAM_BLOCK_ID && inTelegram) { try { await loadSdk(); } catch (e) {} } },
+  available() { if (IS_PORTAL) return PortalAds.available() || DEV_FAKE_ADS; return (!!CFG.ADSGRAM_BLOCK_ID && inTelegram) || DEV_FAKE_ADS; },
+  async preload() { if (IS_PORTAL) return; if (CFG.ADSGRAM_BLOCK_ID && inTelegram) { try { await loadSdk(); } catch (e) {} } },
   // Resolves true only if the user watched to the end.
   async showRewarded() {
+    if (IS_PORTAL && PortalAds.available()) return PortalAds.rewarded();
     if (CFG.ADSGRAM_BLOCK_ID && inTelegram) {
       try {
         await loadSdk();

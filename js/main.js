@@ -1,8 +1,10 @@
-import { CFG, AUTOPLAY } from './config.js';
+import { CFG, AUTOPLAY, DEVOK } from './config.js';
+import { IS_PORTAL, TARGET, gameplay, loadingDone, PortalAds, onAdMute } from './portal.js';
 import { initPlatform, inTelegram, loadLocal, loadCloud, save, haptic, startParam, shareInvite, userId } from './platform.js';
 import { Ads } from './ads.js';
 import { Payments } from './payments.js';
-import { setSound, unlockAudio, SFX } from './audio.js';
+import { setSound, setAdMute, unlockAudio, SFX } from './audio.js';
+onAdMute(setAdMute);
 import { Game, fmt, nightInfo, PERKS, TIERS } from './game.js?v2';
 import { loadAssets } from './assets.js?v2';
 
@@ -37,15 +39,20 @@ const game = new Game($('#cv'), {
     $('#deployCost').textContent = full ? 'GRID FULL: DRAG TO MERGE' : `🔩 ${c} scrap`;
   },
   onWave: (w, n, boss) => banner(boss ? '☠ BOSS WAVE' : w === n ? 'FINAL WAVE' : `WAVE ${w}`, boss ? 'Merge up. Hold the wall!' : w === 1 ? 'Deploy turrets · drag same numbers together' : ''),
-  onPerk: opts => showPerks(opts),
+  onPerk: opts => { gameplay(false); showPerks(opts); },
   onMerge: lv => { if (lv > S.bestTier) { S.bestTier = lv; persist(); if (lv >= 3) setTimeout(() => toast(`New turret unlocked: ${TIERS[lv].name}!`), 200); } },
   onEnd: r => showResult(r),
 });
-window.__game = game;
+if (DEVOK) window.__game = game;
 
 function banner(t, sub) { const b = $('#waveBanner'); b.innerHTML = t + (sub ? `<small>${sub}</small>` : ''); b.classList.add('on'); clearTimeout(banner.t); banner.t = setTimeout(() => b.classList.remove('on'), 1500); }
 let revived = false;
-function play() { unlockAudio(); haptic('medium'); revived = false; show('hud'); game.start(S.night, S.up); }
+let lastWin = false, lastReviveOffer = -1e9;
+async function play() {
+  unlockAudio(); haptic('medium'); revived = false;
+  if (IS_PORTAL) await PortalAds.beforePlay({ afterWin: lastWin });
+  show('hud'); game.start(S.night, S.up); gameplay(true);
+}
 function show(id) { for (const el of document.querySelectorAll('.screen')) el.classList.toggle('on', el.id === id); }
 function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('on'), 2600); }
 
@@ -54,7 +61,7 @@ function showPerks(opts) {
   for (const id of opts) {
     const p = PERKS[id]; const b = document.createElement('button'); b.className = 'perk';
     b.innerHTML = `<span class="ic">${p.i}</span><span><b>${p.t}</b><br><small>${p.d}</small></span>`;
-    b.onclick = () => { $('#perk').classList.remove('on'); game.resumeFromPerk(id); };
+    b.onclick = () => { $('#perk').classList.remove('on'); game.resumeFromPerk(id); gameplay(true); };
     box.appendChild(b);
   }
   $('#perk').classList.add('on');
@@ -94,11 +101,11 @@ function refresh() {
     st.appendChild(row);
   }
   const mg = $('#moreGames'); mg.innerHTML = '';
-  for (const g of CFG.MORE_GAMES) { const a = document.createElement('a'); a.className = 'more'; a.href = g.url; a.innerHTML = `<img src="${g.icon}" alt=""><span><span class="k">MORE GAMES</span><br><b>${g.name}</b><small>${g.tag}</small></span>`; mg.appendChild(a); }
+  if (!IS_PORTAL) for (const g of CFG.MORE_GAMES) { const a = document.createElement('a'); a.className = 'more'; a.href = g.url; a.innerHTML = `<img src="${g.icon}" alt=""><span><span class="k">MORE GAMES</span><br><b>${g.name}</b><small>${g.tag}</small></span>`; mg.appendChild(a); }
 }
 
 function showResult(r) {
-  S.runs++;
+  S.runs++; gameplay(false); lastWin = r.win;
   $('#resTitle').textContent = r.win ? (nightInfo(r.N).boss ? 'BOSS SLAIN!' : 'YOU SURVIVED!') : 'WALL BREACHED!';
   $('#resTitle').className = r.win ? 'win' : 'lose';
   $('#resSub').textContent = r.win ? `Night ${r.N} · ${r.kills} zombies · best turret ${TIERS[r.tier].name}` : `Night ${r.N} · wave ${r.wave}/${r.waves} · ${r.kills} zombies`;
@@ -107,9 +114,12 @@ function showResult(r) {
   const collect = mult => { if (collected) return; collected = true; S.coins += earned * mult; if (r.win) { S.night = r.N + 1; S.best = Math.max(S.best, r.N); } persist(); refresh(); };
   const adBtn = $('#btnDouble'), revBtn = $('#btnRevive');
   adBtn.style.display = Ads.available() && earned > 0 ? '' : 'none';
-  revBtn.style.display = !r.win && !revived && Ads.available() ? '' : 'none';
+  // portals: don't offer a revive ad on every death (CrazyGames rule), at most one offer every 3 minutes
+  const offerRevive = !r.win && !revived && Ads.available() && (!IS_PORTAL || performance.now() - lastReviveOffer > 180000);
+  if (offerRevive && IS_PORTAL) lastReviveOffer = performance.now();
+  revBtn.style.display = offerRevive ? '' : 'none';
   adBtn.onclick = async () => { adBtn.disabled = true; const ok = await Ads.showRewarded(); adBtn.disabled = false; if (ok) { collect(2); SFX.coin(); toast(`Doubled! +${fmt(earned * 2)} coins`); adBtn.style.display = 'none'; $('#resCoins').textContent = '+' + fmt(earned * 2); } else toast('No ad available right now'); };
-  revBtn.onclick = async () => { revBtn.disabled = true; const ok = await Ads.showRewarded(); revBtn.disabled = false; if (ok) { revived = true; show('hud'); game.revive(); } };
+  revBtn.onclick = async () => { revBtn.disabled = true; const ok = await Ads.showRewarded(); revBtn.disabled = false; if (ok) { revived = true; lastWin = false; show('hud'); game.revive(); gameplay(true); } else toast('No ad available right now'); };
   $('#btnNext').textContent = r.win ? `NIGHT ${r.N + 1} ▶` : 'TRY AGAIN ↻';
   $('#btnNext').onclick = () => { collect(1); play(); };
   $('#btnMenu').onclick = () => { collect(1); refresh(); show('menu'); };
@@ -137,13 +147,26 @@ $('#btnDaily').onclick = openDaily;
 $('#btnInvite').onclick = () => shareInvite(CFG.BOT_USERNAME, `I survived night ${S.best || S.night} in Deadspan: Outpost. Think you can hold the wall longer? 🧟🧱`);
 $('#btnSound').onclick = () => { S.sound = !S.sound; setSound(S.sound); persist(); refresh(); };
 for (const b of document.querySelectorAll('[data-close]')) b.onclick = () => b.closest('.modal').classList.remove('on');
-document.addEventListener('visibilitychange', () => game.pause(document.hidden));
+document.addEventListener('visibilitychange', () => { const po = document.getElementById('pauseOv'); if (document.hidden || !(po && po.classList.contains('on'))) game.pause(document.hidden); });
 if (inTelegram && window.Telegram.WebApp.onEvent) window.Telegram.WebApp.onEvent('viewportChanged', () => game.resize());
+if (IS_PORTAL) {
+  // no Telegram invites, no Stars shop, no cross-links or outgoing links on web portals
+  for (const sel of ['#btnInvite', '#starList', '#moreGames', '#menu footer']) { const el = $(sel); if (el) el.style.display = 'none'; }
+  const sl = $('#starList'); if (sl && sl.previousElementSibling && sl.previousElementSibling.tagName === 'H3') sl.previousElementSibling.style.display = 'none';
+  // Poki/CrazyGames ad UX: 🎬 icon on every rewarded button, plain continue button above them
+  for (const b of document.querySelectorAll('button.ad')) b.textContent = b.textContent.replace(/^▶/, '🎬');
+  const nx = $('#btnNext'), first = $('#btnDouble'); if (nx && first) first.parentNode.insertBefore(nx, first);
+  // Esc / P pauses (keyboard players), tap or key resumes
+  const pv = document.createElement('div'); pv.id = 'pauseOv'; pv.innerHTML = '<div>PAUSED<small>Tap or press Esc to resume</small></div>'; document.body.appendChild(pv);
+  const setPause = v => { if (!$('#hud').classList.contains('on')) return; if (v && game.state !== 'play') return; if (!v && game.state !== 'paused') return; game.pause(v); pv.classList.toggle('on', v); gameplay(!v); };
+  window.addEventListener('keydown', e => { if (e.key === 'Escape' || e.key === 'p' || e.key === 'P') setPause(game.state === 'play'); });
+  pv.onclick = () => setPause(false);
+}
 Ads.preload();
-Payments.claim().then(c => { if (c > 0) { S.coins += c; persist(); refresh(); toast(`Purchase delivered: +${fmt(c)} coins`); } });
+if (!IS_PORTAL) Payments.claim().then(c => { if (c > 0) { S.coins += c; persist(); refresh(); toast(`Purchase delivered: +${fmt(c)} coins`); } });
 refresh();
-window.__fps = () => game.fps;
+if (DEVOK) window.__fps = () => game.fps;
 loadAssets(p => { $('#loadFill').style.width = Math.round(p * 100) + '%'; }).then(() => {
-  game.bg = null; show('menu');
+  game.bg = null; show('menu'); loadingDone();
   if (AUTOPLAY) setTimeout(play, 400);
 });

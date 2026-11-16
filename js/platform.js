@@ -1,4 +1,5 @@
 // Telegram WebApp wrapper + persistence (localStorage, mirrored to Telegram CloudStorage when available).
+import { store } from './portal.js';
 const W = window.Telegram && window.Telegram.WebApp;
 export const tg = W || null;
 export const inTelegram = !!(W && W.initData);
@@ -42,7 +43,7 @@ const KEY = 'outpost_save_v1';
 const cloudOk = () => inTelegram && tg.CloudStorage && tg.isVersionAtLeast && tg.isVersionAtLeast('6.9');
 
 export function loadLocal() {
-  try { return JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { return null; }
+  try { return JSON.parse(store.get(KEY) || 'null'); } catch (e) { return null; }
 }
 export function loadCloud() {
   return new Promise(res => {
@@ -54,7 +55,7 @@ export function loadCloud() {
 let cloudTimer = null;
 export function save(data) {
   const s = JSON.stringify(data);
-  try { localStorage.setItem(KEY, s); } catch (e) {}
+  store.set(KEY, s);
   if (cloudOk()) {
     clearTimeout(cloudTimer);
     cloudTimer = setTimeout(() => { try { tg.CloudStorage.setItem(KEY, s, () => {}); } catch (e) {} }, 800);

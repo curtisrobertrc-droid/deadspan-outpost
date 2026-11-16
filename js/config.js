@@ -17,5 +17,6 @@ export const CFG = {
   ],
 };
 export const QS = new URLSearchParams(location.search);
-export const DEV_FAKE_ADS = QS.get('devads') === '1';
-export const AUTOPLAY = QS.get('bot') === '1';
+export const DEVOK = !window.PORTAL || QS.get('qa') === '1'; // dev helpers are stripped from portal builds
+export const DEV_FAKE_ADS = DEVOK && QS.get('devads') === '1';
+export const AUTOPLAY = DEVOK && QS.get('bot') === '1';
