@@ -7,8 +7,8 @@ export const CFG = {
   ADSGRAM_BLOCK_ID: '',        // separate AdsGram Rewarded block for this game
   ADSGRAM_DEBUG: false,
   BACKEND_URL: 'https://deadspan-bot.curtis-robert-rc.workers.dev',  // shared Deadspan Cloudflare Worker
-  // Leaderboards stay off until Rob sets the BOT_TOKEN Worker secret (deadspan repo docs/LEADERBOARDS.md). false = personal bests + "coming soon".
-  LEADERBOARDS: false,
+  // Leaderboards (needs Telegram so initData can be checked). In a normal browser the Ranks tab still shows personal bests.
+  LEADERBOARDS: true,
   // Telegram Stars products: COSMETIC ONLY (no coins, no power), fixed contents, no random rewards (UK loot-box safe).
   STAR_PRODUCTS: [
     { sku: 'op_pass', title: 'Premium season pass', desc: 'Unlocks this month\'s premium cosmetic track', stars: 150 },

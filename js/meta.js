@@ -165,7 +165,9 @@ export function createMeta(o) {
     const list = el('<div class="lb"></div>'); body.appendChild(list);
     if (o.portal) { list.appendChild(el(`<div class="pbrow"><span>Runs played</span><b>${fmt(PB.runs || 0)}</b></div>`)); list.appendChild(el('<p class="note">Beat your own records: today, this week and all-time.</p>')); return; }
     if (!o.net || !o.net.enabled()) {
-      list.appendChild(el(`<p class="note">🏆 Global and friends leaderboards are coming soon. Your personal bests are saved now. Top players each week will win coins and exclusive badges.</p>`));
+      list.appendChild(el(o.net && typeof o.net.configured === 'function' && o.net.configured()
+        ? '<p class="note">🏆 Global and friends boards are live in Telegram. Open the game from @DeadspanGameBot to see them and earn weekly coin rewards. Your personal bests are saved here.</p>'
+        : '<p class="note">🏆 Global and friends leaderboards are coming soon. Your personal bests are saved now. Top players each week will win coins and exclusive badges.</p>'));
       return;
     }
     list.innerHTML = '<p class="note">Loading…</p>';
