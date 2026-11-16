@@ -6,8 +6,8 @@ export const CFG = {
   MINI_APP_SHORT_NAME: '',     // e.g. 'outpost' (via /newapp on the same bot)
   ADSGRAM_BLOCK_ID: '',        // separate AdsGram Rewarded block for this game
   ADSGRAM_DEBUG: false,
-  BACKEND_URL: '',             // shared Deadspan Cloudflare Worker
-  // Leaderboards (needs BACKEND_URL + the D1 database, see deadspan repo docs/LEADERBOARDS.md). false = personal bests + "coming soon".
+  BACKEND_URL: 'https://deadspan-bot.curtis-robert-rc.workers.dev',  // shared Deadspan Cloudflare Worker
+  // Leaderboards stay off until Rob sets the BOT_TOKEN Worker secret (deadspan repo docs/LEADERBOARDS.md). false = personal bests + "coming soon".
   LEADERBOARDS: false,
   // Telegram Stars products: COSMETIC ONLY (no coins, no power), fixed contents, no random rewards (UK loot-box safe).
   STAR_PRODUCTS: [
