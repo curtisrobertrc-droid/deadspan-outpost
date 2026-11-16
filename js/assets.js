@@ -43,3 +43,20 @@ export function loadAssets(onProgress, dpr = Math.min(window.devicePixelRatio ||
   const timeout = new Promise(r => setTimeout(r, 12000)); // never block the game on slow networks
   return Promise.race([all, timeout]).then(() => { ready = true; });
 }
+// Cosmetic recolour: builds (once) a tinted copy of a sprite and returns its key. mode 'color' keeps shading, 'multiply' darkens.
+export function tinted(name, key, color, mode = 'color', amt = 0.9) {
+  const k = name + '@' + key; if (IMG[k]) return k; const e = IMG[name]; if (!e) return name;
+  const rc = src => {
+    const c = document.createElement('canvas'); c.width = src.width; c.height = src.height; const x = c.getContext('2d');
+    x.drawImage(src, 0, 0); x.globalCompositeOperation = mode; x.globalAlpha = amt; x.fillStyle = color; x.fillRect(0, 0, c.width, c.height);
+    x.globalAlpha = 1; x.globalCompositeOperation = 'destination-in'; x.drawImage(src, 0, 0); return c;
+  };
+  try { IMG[k] = { aspect: e.aspect, mips: e.mips.map(rc), white: e.white }; return k; } catch (err) { return name; }
+}
+// small data-URL thumbnail of a (possibly tinted) sprite for shop cards
+const thumbs = {};
+export function thumb(key, h = 48) {
+  if (thumbs[key]) return thumbs[key]; const e = IMG[key]; if (!e) return null;
+  let m = e.mips[0]; for (const c of e.mips) if (c.height >= h) m = c;
+  try { const c = document.createElement('canvas'); c.height = h; c.width = Math.round(h * e.aspect); c.getContext('2d').drawImage(m, 0, 0, c.width, c.height); return (thumbs[key] = c.toDataURL()); } catch (err) { return null; }
+}

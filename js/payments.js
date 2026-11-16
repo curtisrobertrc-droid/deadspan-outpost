@@ -7,11 +7,11 @@ export const Payments = {
   enabled() { return !!CFG.BACKEND_URL && inTelegram && !!tg.openInvoice; },
   // Collects coins credited by completed purchases (also called on start-up in case the app closed mid-purchase).
   async claim() {
-    if (!this.enabled()) return 0;
+    if (!this.enabled()) return {};
     try {
       const c = await fetch(CFG.BACKEND_URL + '/claim', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initData: tg.initData, game: 'outpost' }) }).then(x => x.json());
-      return c.coins || 0;
-    } catch (e) { return 0; }
+      return c || {};
+    } catch (e) { return {}; }
   },
   async buy(sku) {
     if (!this.enabled()) return { ok: false, reason: 'disabled' };
@@ -26,7 +26,7 @@ export const Payments = {
       if (status !== 'paid') return { ok: false, reason: status };
       // Server is the source of truth: the webhook credits the purchase, then we claim it.
       await new Promise(r => setTimeout(r, 1500));
-      return { ok: true, coins: await this.claim() };
+      return { ok: true, grant: await this.claim() };
     } catch (e) { return { ok: false, reason: 'error' }; }
   },
 };

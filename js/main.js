@@ -1,12 +1,14 @@
 import { CFG, AUTOPLAY, DEVOK } from './config.js';
 import { IS_PORTAL, TARGET, gameplay, loadingDone, PortalAds, onAdMute } from './portal.js';
-import { initPlatform, inTelegram, loadLocal, loadCloud, save, haptic, startParam, shareInvite, userId } from './platform.js';
+import { tg, initPlatform, inTelegram, loadLocal, loadCloud, save, haptic, startParam, shareInvite, userId } from './platform.js';
 import { Ads } from './ads.js';
 import { Payments } from './payments.js';
 import { setSound, setAdMute, unlockAudio, SFX } from './audio.js';
 onAdMute(setAdMute);
-import { Game, fmt, nightInfo, PERKS, TIERS } from './game.js?v2';
-import { loadAssets } from './assets.js?v2';
+import { Game, fmt, nightInfo, PERKS, TIERS } from './game.js?v7';
+import { loadAssets } from './assets.js?v7';
+import { createMeta } from './meta.js?v7';
+import { CATALOG, CATS, applyTo } from './catalog.js?v7';
 
 initPlatform();
 const $ = s => document.querySelector(s);
@@ -14,7 +16,7 @@ const DEF = { v: 1, night: 1, coins: 0, best: 0, bestTier: 1, up: { dmg: 0, scra
 const norm = o => { const s = Object.assign({}, DEF, o || {}); s.up = Object.assign({}, DEF.up, s.up); s.daily = Object.assign({}, DEF.daily, s.daily); return s; };
 let S = norm(loadLocal());
 const persist = () => save(S);
-loadCloud().then(c => { if (c && (c.night > S.night || (c.night === S.night && c.coins > S.coins))) { S = norm(c); persist(); refresh(); } });
+loadCloud().then(c => { if (c && (c.night > S.night || (c.night === S.night && c.coins > S.coins))) { S = norm(c); persist(); refresh(); if (typeof meta !== "undefined") meta.reapply(); } });
 setSound(S.sound);
 
 const sp = startParam();
@@ -45,13 +47,23 @@ const game = new Game($('#cv'), {
 });
 if (DEVOK) window.__game = game;
 
+// cosmetics, daily shop, season pass, leaderboards (cosmetic only; see js/meta.js)
+const net = {
+  enabled: () => !!(CFG.LEADERBOARDS && CFG.BACKEND_URL && inTelegram),
+  post: (path, body) => fetch(CFG.BACKEND_URL + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ initData: tg.initData }, body)) }).then(r => r.json()),
+};
+const CAT_BY_ID = Object.fromEntries(CATALOG.map(i => [i.id, i]));
+const meta = createMeta({ getS: () => S, persist, game: 'outpost', catalog: CATALOG, cats: CATS, toast: m => toast(m), fmt, sfx: () => SFX.coin(),
+  apply: eq => applyTo(game, eq, CAT_BY_ID), net, refresh: () => refresh(), metricLabel: v => `Night ${Math.floor(v / 10000)} · ${fmt(v % 10000)} pts` });
+if (DEVOK) window.__meta = meta;
+
 function banner(t, sub) { const b = $('#waveBanner'); b.innerHTML = t + (sub ? `<small>${sub}</small>` : ''); b.classList.add('on'); clearTimeout(banner.t); banner.t = setTimeout(() => b.classList.remove('on'), 1500); }
 let revived = false;
 let lastWin = false, lastReviveOffer = -1e9;
 async function play() {
   unlockAudio(); haptic('medium'); revived = false;
   if (IS_PORTAL) await PortalAds.beforePlay({ afterWin: lastWin });
-  show('hud'); game.start(S.night, S.up); gameplay(true);
+  show('hud'); game.start(S.night, S.up); game.runT0 = game.t; gameplay(true);
 }
 function show(id) { for (const el of document.querySelectorAll('.screen')) el.classList.toggle('on', el.id === id); }
 function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('on'), 2600); }
@@ -79,6 +91,7 @@ function refresh() {
   const info = nightInfo(S.night); const left = 3 - (S.night % 3);
   $('#menuBoss').textContent = info.boss ? '☠ BOSS NIGHT' : `Boss in ${left} night${left === 1 ? '' : 's'} · best turret: ${TIERS[S.bestTier].name}`;
   $('#dailyDot').style.display = dailyReady() ? 'block' : 'none';
+  if (typeof meta !== 'undefined') $('#passDot').style.display = meta.claimable() ? 'block' : 'none';
   $('#btnSound').textContent = S.sound ? '🔊' : '🔇';
   $('#shopCoins').textContent = fmt(S.coins);
   const list = $('#upList'); list.innerHTML = '';
@@ -92,11 +105,11 @@ function refresh() {
   const st = $('#starList'); st.innerHTML = '';
   for (const p of CFG.STAR_PRODUCTS) {
     const row = document.createElement('div'); row.className = 'up';
-    row.innerHTML = `<div class="ic">⭐</div><div class="t"><b>${p.title}</b><br><small>Fixed amount, no random rewards</small></div><button class="buy star">${p.stars} ⭐</button>`;
+    row.innerHTML = `<div class="ic">⭐</div><div class="t"><b>${p.title}</b><br><small>${p.desc || ''} · cosmetic only, fixed contents</small></div><button class="buy star">${p.stars} ⭐</button>`;
     row.querySelector('button').onclick = async () => {
       if (!Payments.enabled()) return toast('Telegram Stars shop opens soon!');
       const r = await Payments.buy(p.sku);
-      if (r.ok) { S.coins += r.coins; persist(); refresh(); toast('Thanks! Coins added.'); } else if (r.reason !== 'cancelled') toast('Purchase not completed.');
+      if (r.ok) { applyGrant(r.grant); toast('Thanks! Unlocked.'); } else if (r.reason !== 'cancelled') toast('Purchase not completed.');
     };
     st.appendChild(row);
   }
@@ -110,6 +123,9 @@ function showResult(r) {
   $('#resTitle').className = r.win ? 'win' : 'lose';
   $('#resSub').textContent = r.win ? `Night ${r.N} · ${r.kills} zombies · best turret ${TIERS[r.tier].name}` : `Night ${r.N} · wave ${r.wave}/${r.waves} · ${r.kills} zombies`;
   $('#resCoins').textContent = '+' + fmt(r.coins);
+  meta.addXp(r.kills * 0.5 + (r.win ? 40 + r.N * 2 : 10));
+  { const cleared = r.win ? r.N : r.N - 1, pts = Math.min(9999, r.kills * 3 + (r.tier || 0) * 100);
+    if (cleared > 0) meta.recordRun(cleared * 10000 + pts, cleared, { kills: r.kills, win: r.win, dur: Math.round(game.t - (game.runT0 || 0)), ref: refBy() }); }
   const earned = r.coins; let collected = false;
   const collect = mult => { if (collected) return; collected = true; S.coins += earned * mult; if (r.win) { S.night = r.N + 1; S.best = Math.max(S.best, r.N); } persist(); refresh(); };
   const adBtn = $('#btnDouble'), revBtn = $('#btnRevive');
@@ -140,6 +156,11 @@ function openDaily() {
   $('#daily').classList.add('on');
 }
 
+function applyGrant(c) { if (!c) return; for (const id of c.items || []) meta.grant(id, 'Unlocked'); if (c.premium) meta.premium(true); persist(); refresh(); }
+const refBy = () => { const p = startParam(); return p && /^ref_\d+$/.test(p) ? p.slice(4) : undefined; };
+$('#btnStyle').onclick = () => meta.open('daily');
+$('#btnPass').onclick = () => meta.open('pass');
+$('#btnRanks').onclick = () => meta.open('ranks');
 $('#btnPlay').onclick = play;
 $('#btnDeploy').onclick = () => game.deploy();
 $('#btnShop').onclick = () => { refresh(); $('#shop').classList.add('on'); };
@@ -163,10 +184,11 @@ if (IS_PORTAL) {
   pv.onclick = () => setPause(false);
 }
 Ads.preload();
-if (!IS_PORTAL) Payments.claim().then(c => { if (c > 0) { S.coins += c; persist(); refresh(); toast(`Purchase delivered: +${fmt(c)} coins`); } });
+if (!IS_PORTAL) Payments.claim().then(c => { if (c && ((c.items || []).length || c.premium)) { applyGrant(c); toast('Purchase delivered!'); } });
+meta.checkRewards();
 refresh();
 if (DEVOK) window.__fps = () => game.fps;
 loadAssets(p => { $('#loadFill').style.width = Math.round(p * 100) + '%'; }).then(() => {
-  game.bg = null; show('menu'); loadingDone();
+  game.bg = null; meta.reapply(); show('menu'); loadingDone();
   if (AUTOPLAY) setTimeout(play, 400);
 });

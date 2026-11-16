@@ -1,6 +1,6 @@
 // Deadspan: Outpost: merge tower defence. Plain canvas. v2: sprite art (shared with Deadspan), procedural fallback.
 import { AUTOPLAY } from './config.js';
-import { IMG, BG, pick } from './assets.js?v2';
+import { IMG, BG, pick } from './assets.js?v7';
 import { haptic } from './platform.js';
 import { SFX } from './audio.js';
 
@@ -191,7 +191,7 @@ export class Game {
     if (this.ghosts.length < 30) this.ghosts.push({ z, t: 0 });
     const zt = ZT[z.t]; const s = Math.round(zt.scrap * (1 + 0.5 * (this.perks.scrap || 0)) * this.comboMult());
     this.scrap += s; this.coins += z.t === 'boss' ? 60 + this.N * 10 : z.t === 'brute' ? 3 : 1;
-    this.burst(z.x, z.y, '#6fbf4f', z.t === 'boss' ? 60 : z.t === 'brute' ? 20 : 8, z.t === 'boss' ? 380 : 180); this.burst(z.x, z.y, '#9b1c1c', 5, 120);
+    this.burst(z.x, z.y, this.killCol(0), z.t === 'boss' ? 60 : z.t === 'brute' ? 20 : 8, z.t === 'boss' ? 380 : 180); this.burst(z.x, z.y, this.killCol(1), 5, 120);
     if (z.t === 'boss' || z.t === 'brute') { this.addShake(z.t === 'boss' ? 14 : 4); SFX.boom(); haptic('heavy'); this.pop(z.x, z.y - 20, '+' + s, '#facc15', 22); } else SFX.kill();
     if (this.combo % 10 === 0) { this.pop(200, this.wallY - 40, `COMBO ×${this.comboMult().toFixed(1)}`, '#facc15', 24); haptic('light'); }
   }
@@ -204,7 +204,7 @@ export class Game {
   }
 
   lose() { if (this.over) return; this.over = true; this.state = 'end'; SFX.lose(); haptic('error'); this.addShake(12); setTimeout(() => this.hooks.onEnd({ win: false, N: this.N, coins: this.coins, kills: this.kills, wave: this.wave, waves: this.info.waves, tier: this.bestTier }), 800); }
-  win() { if (this.over) return; this.over = true; this.state = 'end'; SFX.win(); haptic('success'); const bonus = 40 + this.N * 12 + (this.info.boss ? 80 + this.N * 10 : 0) + Math.round(this.wall / this.wallMax * 30); this.coins += bonus; this.pop(200, this.wallY - 120, 'DAWN!', '#facc15', 44); this.burst(200, this.wallY - 60, '#facc15', 40, 300); setTimeout(() => this.hooks.onEnd({ win: true, N: this.N, coins: this.coins, bonus, kills: this.kills, wave: this.wave, waves: this.info.waves, tier: this.bestTier, wallPct: this.wall / this.wallMax }), 1000); }
+  win() { if (this.over) return; this.over = true; this.state = 'end'; SFX.win(); haptic('success'); const bonus = 40 + this.N * 12 + (this.info.boss ? 80 + this.N * 10 : 0) + Math.round(this.wall / this.wallMax * 30); this.coins += bonus; const bn = (this.cos && this.cos.banner) || {}; this.pop(200, this.wallY - 120, bn.t || 'DAWN!', bn.c || '#facc15', 44); this.burst(200, this.wallY - 60, '#facc15', 40, 300); setTimeout(() => this.hooks.onEnd({ win: true, N: this.N, coins: this.coins, bonus, kills: this.kills, wave: this.wave, waves: this.info.waves, tier: this.bestTier, wallPct: this.wall / this.wallMax }), 1000); }
 
   // ---------- update ----------
   update(dt) {
@@ -368,8 +368,11 @@ export class Game {
     }
     c.setTransform(1, 0, 0, 1, b * this.shx, b * this.shy); c.drawImage(this.bg, 0, 0); this.base();
   }
+  // cosmetics (visual only)
+  tracerCol(def) { const t = this.cos && this.cos.tracer; return !t ? def : t === 'rainbow' ? `hsl(${(this.t * 240) % 360 | 0},100%,65%)` : t; }
+  killCol(i) { const k = this.cos && this.cos.kill; return k ? k[(Math.random() * k.length) | 0] : i ? '#9b1c1c' : '#6fbf4f'; }
   drawTurret(c, x, y, s, alpha = 1) {
-    const T = TIERS[s.lv]; const sc = s.born > 0 ? 1 + s.born * 1.2 : 1; const n = TIMG[s.lv];
+    const T = TIERS[s.lv]; const sc = s.born > 0 ? 1 + s.born * 1.2 : 1; const n = this.tkey ? this.tkey(TIMG[s.lv]) : TIMG[s.lv];
     if (!IMG[n]) return this.drawTurretOld(c, x, y, s, alpha);
     const R = (19 + Math.min(s.lv, 8) * 0.7) * sc;
     // tier ring
@@ -433,7 +436,7 @@ export class Game {
     for (const b of this.blobs) { c.fillStyle = '#d9f99d'; c.beginPath(); c.arc(b.x, b.y, 5, 0, 7); c.fill(); }
     // wall
     const wy = this.wallY, pct = this.wall / this.wallMax;
-    if (IMG.sandbags) { const e = IMG.sandbags, sw = 150, sh = sw / e.aspect; const im = pick(e, sh * this.bs); for (let i = 0; i < 4; i++) { const x = -20 + i * 118; const dmg = pct < ((i % 3) + 1) * 0.25; c.globalAlpha = dmg ? 0.75 : 1; c.drawImage(im, x, wy - sh * 0.62 + (dmg ? 4 : 0), sw, sh); } c.globalAlpha = 1; if (pct < 0.5) { c.fillStyle = `rgba(60,20,10,${(0.5 - pct) * 0.6})`; c.fillRect(0, wy - 24, W, 36); } }
+    if (IMG.sandbags) { const e = IMG[this.wallKey] || IMG.sandbags, sw = 150, sh = sw / e.aspect; const im = pick(e, sh * this.bs); for (let i = 0; i < 4; i++) { const x = -20 + i * 118; const dmg = pct < ((i % 3) + 1) * 0.25; c.globalAlpha = dmg ? 0.75 : 1; c.drawImage(im, x, wy - sh * 0.62 + (dmg ? 4 : 0), sw, sh); } c.globalAlpha = 1; if (pct < 0.5) { c.fillStyle = `rgba(60,20,10,${(0.5 - pct) * 0.6})`; c.fillRect(0, wy - 24, W, 36); } }
     else for (let i = 0; i < 10; i++) { const x = i * 40; const dmg = pct < (i % 3 + 1) * 0.25; c.fillStyle = dmg ? '#57534e' : '#78716c'; c.fillRect(x + 1, wy - 12, 38, 22); c.fillStyle = 'rgba(0,0,0,.25)'; c.fillRect(x + 1, wy + 6, 38, 4); if (dmg) { c.strokeStyle = '#292524'; c.lineWidth = 1.5; c.beginPath(); c.moveTo(x + 10, wy - 12); c.lineTo(x + 18, wy); c.lineTo(x + 12, wy + 10); c.stroke(); } }
     c.fillStyle = '#0a0f18'; rr(c, 98, wy + 18, 204, 14, 7); c.fill(); c.fillStyle = pct > 0.5 ? '#4ade80' : pct > 0.25 ? '#facc15' : '#ef4444'; rr(c, 100, wy + 20, Math.max(4, 200 * pct), 10, 5); c.fill(); c.fillStyle = 'rgba(255,255,255,.3)'; rr(c, 102, wy + 21, Math.max(2, 196 * pct), 3, 2); c.fill();
     c.font = '800 9px system-ui'; c.fillStyle = '#fff'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.lineWidth = 3; c.strokeStyle = '#000'; c.strokeText(`WALL ${Math.ceil(this.wall)}/${this.wallMax}`, 200, wy + 25.5); c.fillText(`WALL ${Math.ceil(this.wall)}/${this.wallMax}`, 200, wy + 25.5);
@@ -449,7 +452,7 @@ export class Game {
     // shots + fx
     c.lineCap = 'round';
     c.globalCompositeOperation = 'lighter';
-    for (const b of this.shots) { if (b.k === 'b') { c.strokeStyle = b.col; c.lineWidth = 3; c.beginPath(); c.moveTo(b.x, b.y); c.lineTo(b.x - b.vx * 0.012, b.y - b.vy * 0.012); c.stroke(); } else { c.fillStyle = b.col; c.beginPath(); c.arc(b.x, b.y, 4.5, 0, 7); c.fill(); c.fillStyle = '#fff'; c.beginPath(); c.arc(b.x, b.y, 2, 0, 7); c.fill(); } }
+    for (const b of this.shots) { if (b.k === 'b') { c.strokeStyle = this.tracerCol(b.col); c.lineWidth = 3; c.beginPath(); c.moveTo(b.x, b.y); c.lineTo(b.x - b.vx * 0.012, b.y - b.vy * 0.012); c.stroke(); } else { c.fillStyle = b.col; c.beginPath(); c.arc(b.x, b.y, 4.5, 0, 7); c.fill(); c.fillStyle = '#fff'; c.beginPath(); c.arc(b.x, b.y, 2, 0, 7); c.fill(); } }
     c.globalCompositeOperation = 'source-over';
     for (const f of this.fx) {
       const a = 1 - f.t / f.life; c.globalAlpha = a;

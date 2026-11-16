@@ -117,3 +117,41 @@ body.portal #wrap canvas{position:relative;box-shadow:0 0 40px rgba(0,0,0,.6)}
 #pauseOv{position:fixed;inset:0;z-index:50;display:none;align-items:center;justify-content:center;background:rgba(8,12,24,.6);font:900 44px system-ui,sans-serif;color:#fff;text-align:center;text-shadow:0 4px 0 #0a0f18}
 #pauseOv.on{display:flex}
 #pauseOv small{display:block;font-size:16px;opacity:.85;margin-top:6px;text-shadow:none}
+/* ---- meta layer: style shop, season pass, leaderboards ---- */
+#passDot{position:absolute;top:-4px;right:-4px;width:12px;height:12px;background:#ff3b3b;border-radius:50%;display:none}
+#btnPass{position:relative}
+.sheet.meta{max-height:88vh}
+.tabs{display:flex;gap:6px}
+.tabs .tab{flex:1;font-size:13px;padding:9px 4px;background:linear-gradient(#3a4d78,#26365a);box-shadow:0 3px 0 #0a0f18;position:relative;border-radius:12px}
+.tabs .tab.on{background:linear-gradient(#ffd36b,#f08a00);color:#2a1600}
+.tabs.sm .tab{font-size:12px;padding:7px 2px}
+.tab .dot{position:absolute;top:-3px;right:-3px;width:10px;height:10px;border-radius:50%;background:#ff3b3b}
+.note{margin:2px 0;font-size:12px;opacity:.75;text-align:center}
+.cos{display:flex;align-items:center;gap:10px;background:linear-gradient(#34466d,#25324f);border:2px solid #0a0f18;border-left:5px solid var(--rc);border-radius:14px;padding:8px 10px}
+.cos .t{flex:1;text-align:left;display:flex;flex-direction:column;gap:2px}.cos .t small{font-size:11px;opacity:.85}.cos .t s{opacity:.6}
+.cos .buy{min-width:92px;font-size:13px;padding:9px 8px}
+.cos .buy.eq{background:linear-gradient(#69db7c,#2f9e44);opacity:1}
+.cos .buy[data-poor]{filter:saturate(.4) brightness(.8)}
+.r-legendary{box-shadow:0 0 14px rgba(255,183,3,.35),inset 0 2px 0 rgba(255,255,255,.1)}
+.sw{width:44px;height:44px;border-radius:10px;flex:none;display:inline-flex;align-items:center;justify-content:center;border:2px solid #0a0f18;object-fit:contain;background:#1b2740}
+img.sw{background:radial-gradient(#3b5287,#1b2740)}
+.sw.em{font-size:24px}
+.collbar{display:flex;flex-direction:column;gap:5px;font-size:13px;font-weight:800}
+.collbar div{height:12px;border-radius:7px;background:#0a0f18;overflow:hidden}.collbar i{display:block;height:100%;background:linear-gradient(90deg,#ffd36b,#f08a00)}
+.meta h3{margin:8px 0 0;text-align:left;font-size:15px}.meta h3 small{opacity:.6;font-weight:600}
+.pass{display:flex;flex-direction:column;gap:6px}
+.tier{display:grid;grid-template-columns:30px 1fr 1fr;gap:6px;align-items:stretch}
+.tier>b{display:flex;align-items:center;justify-content:center;border-radius:10px;background:#0f1729;font-size:13px}
+.tier.got>b{background:linear-gradient(#ffd36b,#f08a00);color:#2a1600}
+.rw{display:flex;align-items:center;gap:6px;font-size:11px;padding:5px 6px;text-align:left;border-radius:10px;background:linear-gradient(#34466d,#25324f);box-shadow:0 2px 0 #0a0f18;position:relative;min-height:40px}
+.rw .sw{width:28px;height:28px;border-radius:7px;font-size:15px}
+.rw.prem{background:linear-gradient(#4a3a6d,#2d2350)}
+.rw.can{background:linear-gradient(#69db7c,#2f9e44);animation:pulse 1.2s infinite}
+.rw.done{opacity:.55}.rw i{position:absolute;right:6px;font-style:normal;color:#8ce99a;font-size:16px}
+.rw:disabled{opacity:.7}.rw.done:disabled{opacity:.5}
+@keyframes pulse{50%{filter:brightness(1.2)}}
+.pbrow{display:flex;justify-content:space-between;align-items:center;background:#0f1729;border-radius:12px;padding:10px 12px;font-size:14px}
+.lb{display:flex;flex-direction:column;gap:5px}
+.lbr{display:flex;align-items:center;gap:8px;background:linear-gradient(#34466d,#25324f);border-radius:12px;padding:7px 10px;font-size:14px}
+.lbr.me{outline:2px solid #ffd36b}
+.lbr .rk{width:26px;font-weight:900;color:#ffd36b}.lbr .nm{flex:1;text-align:left;border-left:4px solid #3a4a6b;padding-left:8px;display:flex;flex-direction:column}.lbr .nm small{font-size:10px;opacity:.7}

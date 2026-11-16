@@ -7,9 +7,12 @@ export const CFG = {
   ADSGRAM_BLOCK_ID: '',        // separate AdsGram Rewarded block for this game
   ADSGRAM_DEBUG: false,
   BACKEND_URL: '',             // shared Deadspan Cloudflare Worker
+  // Leaderboards (needs BACKEND_URL + the D1 database, see deadspan repo docs/LEADERBOARDS.md). false = personal bests + "coming soon".
+  LEADERBOARDS: false,
+  // Telegram Stars products: COSMETIC ONLY (no coins, no power), fixed contents, no random rewards (UK loot-box safe).
   STAR_PRODUCTS: [
-    { sku: 'op_coins_5k',  title: '5,000 coins',  stars: 50 },
-    { sku: 'op_coins_15k', title: '15,000 coins', stars: 120 },
+    { sku: 'op_pass', title: 'Premium season pass', desc: 'Unlocks this month\'s premium cosmetic track', stars: 150 },
+    { sku: 'op_gold', title: 'Gold Outpost bundle', desc: 'Gold Plated turrets + Gold Bars wall + Rainbow tracers', stars: 100 },
   ],
   REFERRAL_BONUS: 300,
   MORE_GAMES: [
