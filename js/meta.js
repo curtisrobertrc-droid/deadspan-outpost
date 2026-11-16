@@ -69,7 +69,7 @@ export function createMeta(o) {
   const tierOf = xp => Math.min(TIERS, Math.floor(xp / XP_TIER));
   function addXp(n) { sync(); const P = pass(); const before = tierOf(P.xp); P.xp += Math.max(0, Math.round(n)); persist(); const after = tierOf(P.xp); if (after > before) toast(`Season pass tier ${after} reached! 🎖`); return after > before; }
   function claimTier(t, track) {
-    const P = pass(); if (tierOf(P.xp) < t || P[track].includes(t)) return; if (track === 'prem' && !P.premium) return toast('Premium pass: coming soon');
+    const P = pass(); if (tierOf(P.xp) < t || P[track].includes(t)) return; if (track === 'prem' && !P.premium) return toast(o.net && o.net.enabled() ? 'Unlock the premium pass in the Shop' : 'Premium pass: coming soon');
     const r = tierReward(t, track); P[track].push(t);
     if (r.item) grant(r.item); if (r.coins) S.coins += r.coins; persist(); o.sfx && o.sfx(); toast(r.item ? `Claimed ${byId[r.item].name}!` : `+${fmt(r.coins)} coins`);
   }
@@ -141,7 +141,7 @@ export function createMeta(o) {
     } else if (tab === 'pass') {
       const P = pass(), t = tierOf(P.xp), into = P.xp - t * XP_TIER, end = new Date(Date.UTC(+P.s.slice(0, 4), +P.s.slice(5), 1)), days = Math.max(0, Math.ceil((end - Date.now()) / 864e5));
       body.appendChild(el(`<div class="collbar"><span>Tier ${t}/${TIERS} · ${t >= TIERS ? 'MAX' : into + '/' + XP_TIER + ' XP'} · season ends in ${days}d</span><div><i style="width:${t >= TIERS ? 100 : (into / XP_TIER * 100).toFixed(1)}%"></i></div></div>`));
-      body.appendChild(el(`<p class="note">Earn XP by playing. Free rewards for everyone. The premium track (Telegram Stars) is coming soon and is cosmetic-only.</p>`));
+      body.appendChild(el(`<p class="note">Earn XP by playing. Free rewards for everyone. ${P.premium ? 'Premium track unlocked, thanks for the support!' : o.net && o.net.enabled() ? 'The premium track (Telegram Stars, in Shop) is cosmetic-only.' : 'The premium track (Telegram Stars) is coming soon and is cosmetic-only.'}</p>`));
       const grid = el('<div class="pass"></div>'); body.appendChild(grid);
       for (let k = 1; k <= TIERS; k++) {
         const row = el(`<div class="tier ${k <= t ? 'got' : ''}"><b>${k}</b></div>`);

@@ -7,7 +7,7 @@ import { setSound, setAdMute, unlockAudio, SFX } from './audio.js';
 onAdMute(setAdMute);
 import { Game, fmt, nightInfo, PERKS, TIERS } from './game.js?v7';
 import { loadAssets } from './assets.js?v7';
-import { createMeta } from './meta.js?v7';
+import { createMeta } from './meta.js?v8';
 import { CATALOG, CATS, applyTo } from './catalog.js?v7';
 
 initPlatform();
