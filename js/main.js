@@ -1,6 +1,6 @@
 import { CFG, AUTOPLAY, DEVOK } from './config.js';
 import { IS_PORTAL, TARGET, gameplay, loadingDone, PortalAds, onAdMute, portalScore } from './portal.js?v2';
-import { tg, initPlatform, inTelegram, loadLocal, loadCloud, save, haptic, startParam, shareInvite, userId } from './platform.js';
+import { tg, initPlatform, inTelegram, loadLocal, loadCloud, save, haptic, startParam, shareInvite, copyInvite, inviteLink, userId } from './platform.js';
 import { Ads } from './ads.js';
 import { Payments } from './payments.js';
 import { setSound, setAdMute, unlockAudio, SFX } from './audio.js';
@@ -16,11 +16,17 @@ const DEF = { v: 1, night: 1, coins: 0, best: 0, bestTier: 1, up: { dmg: 0, scra
 const norm = o => { const s = Object.assign({}, DEF, o || {}); s.up = Object.assign({}, DEF.up, s.up); s.daily = Object.assign({}, DEF.daily, s.daily); return s; };
 let S = norm(loadLocal());
 const persist = () => save(S);
-loadCloud().then(c => { if (c && (c.night > S.night || (c.night === S.night && c.coins > S.coins))) { S = norm(c); persist(); refresh(); if (typeof meta !== "undefined") meta.reapply(); } });
+loadCloud().then(c => { if (c && (c.night > S.night || (c.night === S.night && c.coins > S.coins))) { const ref = S.referrer, pend = S.refPending, paid = S.refInviteePaid; S = norm(c); if (ref && !S.referrer) { S.referrer = ref; S.refPending = S.refPending || pend; S.refInviteePaid = S.refInviteePaid || paid; } persist(); refresh(); if (typeof meta !== "undefined") meta.reapply(); } });
 setSound(S.sound);
 
-const sp = startParam();
-if (sp && /^ref_/.test(sp) && !S.refClaimed && sp !== 'ref_' + userId()) { S.refClaimed = true; S.coins += CFG.REFERRAL_BONUS; persist(); setTimeout(() => toast(`Welcome bonus: +${CFG.REFERRAL_BONUS} coins from your friend's invite!`), 600); }
+// Store the referrer locally. Coin rewards (both players, once the invitee finishes night 1) are paid by the Worker when leaderboards are on; until then they are queued quietly.
+{
+  const p = startParam(); const me = userId();
+  if (p && /^ref_\d{1,15}$/.test(p)) {
+    const id = p.slice(4);
+    if (id && id !== String(me || '') && !S.referrer) { S.referrer = id; persist(); }
+  }
+}
 
 const UPS = [
   { id: 'dmg', name: 'Turret damage', icon: '💥', desc: '+15% damage for every turret', base: 45, g: 1.5, max: 40 },
@@ -140,6 +146,17 @@ function showResult(r) {
   $('#btnNext').textContent = r.win ? `NIGHT ${r.N + 1} ▶` : 'TRY AGAIN ↻';
   $('#btnNext').onclick = () => { collect(1); play(); };
   $('#btnMenu').onclick = () => { collect(1); refresh(); show('menu'); };
+  const shareBtn = $('#btnShareScore');
+  if (shareBtn) {
+    shareBtn.style.display = IS_PORTAL ? 'none' : '';
+    const shareText = r.win
+      ? `I survived night ${r.N} in Deadspan: Outpost! Think you can beat my score? 🧟🧱`
+      : `I made it to wave ${r.wave}/${r.waves} on night ${r.N} in Deadspan: Outpost. Bet you can beat my score! 🧟🧱`;
+    shareBtn.onclick = () => doShare(shareText);
+  }
+  const clearedNow = r.win ? r.N : r.N - 1;
+  if (S.referrer && clearedNow >= 1) { S.refPending = true; persist(); }
+  syncInvites(Math.max(0, clearedNow));
   show('result');
   if (AUTOPLAY && !window.__noAutoNext) setTimeout(() => $('#btnNext').click(), 2500);
 }
@@ -158,7 +175,56 @@ function openDaily() {
 }
 
 function applyGrant(c) { if (!c) return; for (const id of c.items || []) meta.grant(id, 'Unlocked'); if (c.premium) meta.premium(true); persist(); refresh(); }
-const refBy = () => { const p = startParam(); return p && /^ref_\d+$/.test(p) ? p.slice(4) : undefined; };
+const refBy = () => S.referrer || undefined;
+const clearedBest = () => Math.max(S.best || 0, Math.max(0, (S.night || 1) - 1));
+async function tryPreparedShare(text) {
+  if (!net.enabled()) return null;
+  try {
+    const r = await Promise.race([
+      net.post('/shareprep', { game: 'outpost', text }),
+      new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 1200)),
+    ]);
+    return r && r.id ? r.id : null;
+  } catch (e) { return null; }
+}
+async function syncInvites(cleared) {
+  const cl = Math.max(clearedBest(), cleared || 0);
+  if (S.referrer && cl >= 1 && !S.refInviteePaid) { S.refPending = true; persist(); }
+  if (!net.enabled()) return null;
+  try {
+    const r = await net.post('/ref', { game: 'outpost', ref: S.referrer || undefined, cleared: cl });
+    if (!r || r.error) return r;
+    let got = 0;
+    if (r.bonus && !S.refInviteePaid) { S.coins += r.bonus; S.refInviteePaid = true; S.refPending = false; got += r.bonus; toast(`Invite bonus: +${fmt(r.bonus)} coins!`); }
+    if (r.claim) { S.coins += r.claim; got += r.claim; toast(`A friend finished night 1! +${fmt(r.claim)} coins`); }
+    S.inviteStats = { invites: r.invites || 0, cleared: r.cleared || 0, earned: r.earned || 0 };
+    persist(); if (got) { SFX.coin(); haptic('success'); } refresh(); renderInviteStats();
+    return r;
+  } catch (e) { return null; }
+}
+async function doShare(text) {
+  const preparedId = await tryPreparedShare(text);
+  const res = await shareInvite(CFG.BOT_USERNAME, text, { preparedId, title: CFG.GAME_NAME });
+  if (res.aborted) return;
+  if (res.method === 'copy' && res.ok) toast('Link copied — send it to a friend!');
+  else if (!res.ok) toast('Could not share just now. Try Copy link in Invite.');
+}
+function renderInviteStats() {
+  const box = $('#inviteStats'); if (!box) return;
+  if (net.enabled() && S.inviteStats) {
+    const s = S.inviteStats;
+    box.innerHTML = `<div><b class="n">${s.invites || 0}</b> friend${(s.invites === 1) ? '' : 's'} joined</div><div>${s.cleared || 0} finished night 1 · you've earned 🪙 ${fmt(s.earned || 0)}</div>`;
+  } else {
+    box.innerHTML = `<p class="blurb">Your link works now. Coin rewards (🪙 ${fmt(CFG.REFERRAL_BONUS)} each, once a friend finishes night 1) start when leaderboards go live.${S.refPending ? ' Your own bonus is saved and will be added then.' : ''}</p>`;
+  }
+}
+function openInvite() {
+  const el = $('#inviteLink'); if (el) el.textContent = inviteLink(CFG.BOT_USERNAME);
+  renderInviteStats();
+  $('#invite').classList.add('on');
+  syncInvites();
+}
+
 $('#btnStyle').onclick = () => meta.open('daily');
 $('#btnPass').onclick = () => meta.open('pass');
 $('#btnRanks').onclick = () => meta.open('ranks');
@@ -166,14 +232,16 @@ $('#btnPlay').onclick = play;
 $('#btnDeploy').onclick = () => game.deploy();
 $('#btnShop').onclick = () => { refresh(); $('#shop').classList.add('on'); };
 $('#btnDaily').onclick = openDaily;
-$('#btnInvite').onclick = () => shareInvite(CFG.BOT_USERNAME, `I survived night ${S.best || S.night} in Deadspan: Outpost. Think you can hold the wall longer? 🧟🧱`);
+$('#btnInvite').onclick = openInvite;
+$('#btnShareInvite').onclick = () => doShare(`I survived night ${S.best || S.night} in Deadspan: Outpost. Think you can hold the wall longer? 🧟🧱`);
+$('#btnCopyInvite').onclick = async () => { const r = await copyInvite(CFG.BOT_USERNAME, `I survived in Deadspan: Outpost. Think you can hold the wall longer? 🧟🧱`); toast(r.ok ? 'Link copied — send it to a friend!' : 'Could not copy the link'); };
 $('#btnSound').onclick = () => { S.sound = !S.sound; setSound(S.sound); persist(); refresh(); };
 for (const b of document.querySelectorAll('[data-close]')) b.onclick = () => b.closest('.modal').classList.remove('on');
 document.addEventListener('visibilitychange', () => { const po = document.getElementById('pauseOv'); if (document.hidden || !(po && po.classList.contains('on'))) game.pause(document.hidden); });
 if (inTelegram && window.Telegram.WebApp.onEvent) window.Telegram.WebApp.onEvent('viewportChanged', () => game.resize());
 if (IS_PORTAL) {
   // no Telegram invites, no Stars shop, no cross-links or outgoing links on web portals
-  for (const sel of ['#btnInvite', '#starList', '#moreGames', '#menu footer']) { const el = $(sel); if (el) el.style.display = 'none'; }
+  for (const sel of ['#btnInvite', '#btnShareScore', '#starList', '#moreGames', '#menu footer']) { const el = $(sel); if (el) el.style.display = 'none'; }
   const sl = $('#starList'); if (sl && sl.previousElementSibling && sl.previousElementSibling.tagName === 'H3') sl.previousElementSibling.style.display = 'none';
   // Poki/CrazyGames ad UX: 🎬 icon on every rewarded button, plain continue button above them
   for (const b of document.querySelectorAll('button.ad')) b.textContent = b.textContent.replace(/^▶/, '🎬');
@@ -187,6 +255,7 @@ if (IS_PORTAL) {
 Ads.preload();
 if (!IS_PORTAL) Payments.claim().then(c => { if (c && ((c.items || []).length || c.premium)) { applyGrant(c); toast('Purchase delivered!'); } });
 meta.checkRewards();
+syncInvites();
 refresh();
 if (DEVOK) window.__fps = () => game.fps;
 loadAssets(p => { $('#loadFill').style.width = Math.round(p * 100) + '%'; }).then(() => {

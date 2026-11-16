@@ -12,7 +12,7 @@
 <link rel="icon" href="assets/icon.svg">
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <link rel="preload" as="image" href="assets/img/bg.webp?v2" type="image/webp">
-<link rel="stylesheet" href="style.css?v8">
+<link rel="stylesheet" href="style.css?v9">
 </head>
 <body>
 <div id="wrap"><canvas id="cv"></canvas></div>
@@ -59,6 +59,7 @@
     <div class="coins">🪙 <b id="resCoins">+0</b></div>
     <button id="btnDouble" class="ad">▶ Watch ad: DOUBLE coins</button>
     <button id="btnRevive" class="ad">▶ Watch ad: REBUILD wall</button>
+    <button id="btnShareScore" class="share">📣 Beat my score</button>
     <button id="btnNext" class="big">NEXT ▶</button>
     <button id="btnMenu" class="ghost">Menu</button>
   </div>
@@ -86,7 +87,18 @@
   <button class="ghost" data-close>Close</button>
 </div></div>
 
+
+<div id="invite" class="modal"><div class="sheet">
+  <h2>Invite friends</h2>
+  <p class="blurb">Send your link. When a friend finishes night 1, you both get 🪙 <b>500</b> coins. Coins only — no cash.</p>
+  <div id="inviteLink"></div>
+  <button id="btnShareInvite" class="big share">Share link</button>
+  <button id="btnCopyInvite" class="ghost">Copy link</button>
+  <div id="inviteStats"></div>
+  <button class="ghost" data-close>Close</button>
+</div></div>
+
 <div id="toast"></div>
-<script type="module" src="js/main.js?v11"></script>
+<script type="module" src="js/main.js?v12"></script>
 </body>
 </html>

@@ -156,3 +156,10 @@ img.sw{background:radial-gradient(#3b5287,#1b2740)}
 .lbr.me{outline:2px solid #ffd36b}
 .lbr .rk{width:26px;font-weight:900;color:#ffd36b}.lbr .nm{flex:1;text-align:left;border-left:4px solid #3a4a6b;padding-left:8px;display:flex;flex-direction:column}.lbr .nm small{font-size:10px;opacity:.7}
 .pass.one .tier{grid-template-columns:34px 1fr}
+
+/* Invite friends + beat-my-score share */
+button.share{width:100%}
+#inviteLink{background:#0006;border-radius:12px;padding:10px 12px;word-break:break-all;font-size:13px;-webkit-user-select:all;user-select:all}
+#inviteStats{background:#0004;border-radius:12px;padding:10px 12px;font-size:14px;line-height:1.45}
+#inviteStats .n{font-size:22px;font-weight:800}
+#invite .blurb{opacity:.85;line-height:1.4;margin:0}

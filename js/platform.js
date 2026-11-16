@@ -3,6 +3,7 @@ import { store } from './portal.js?v2';
 const W = window.Telegram && window.Telegram.WebApp;
 export const tg = W || null;
 export const inTelegram = !!(W && W.initData);
+const DEFAULT_BOT = 'DeadspanGameBot';
 
 export function initPlatform() {
   if (!tg) return;
@@ -62,11 +63,49 @@ export function save(data) {
   }
 }
 
-export function shareInvite(botUsername, text) {
+export function inviteLink(botUsername) {
+  const bot = botUsername || DEFAULT_BOT;
   const uid = userId();
-  const link = botUsername ? `https://t.me/${botUsername}?startapp=ref_${uid || 'web'}` : location.origin + location.pathname;
-  const url = `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(text)}`;
-  if (inTelegram && tg.openTelegramLink) tg.openTelegramLink(url);
-  else if (navigator.share) navigator.share({ title: 'Deadspan: Outpost', text, url: link }).catch(() => {});
-  else window.open(url, '_blank');
+  return uid ? `https://t.me/${bot}?startapp=ref_${uid}` : `https://t.me/${bot}?startapp`;
+}
+
+async function copyText(s) {
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) { await navigator.clipboard.writeText(s); return true; }
+  } catch (e) {}
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = s; ta.setAttribute('readonly', ''); ta.style.cssText = 'position:fixed;left:-9999px';
+    document.body.appendChild(ta); ta.select(); const ok = document.execCommand('copy'); ta.remove(); return !!ok;
+  } catch (e) { return false; }
+}
+
+// Share a challenge / invite: prepared Telegram message if we have one, else t.me/share, else navigator.share, else copy the link.
+export async function shareInvite(botUsername, text, opts = {}) {
+  const link = inviteLink(botUsername);
+  const title = opts.title || 'Deadspan: Outpost';
+  if (inTelegram && tg && typeof tg.shareMessage === 'function' && opts.preparedId) {
+    try {
+      const ok = await new Promise(res => {
+        try { tg.shareMessage(String(opts.preparedId), sent => res(!!sent)); } catch (e) { res(false); }
+      });
+      if (ok) return { ok: true, method: 'shareMessage', link };
+    } catch (e) {}
+  }
+  const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(text)}`;
+  if (inTelegram && tg && tg.openTelegramLink) {
+    try { tg.openTelegramLink(shareUrl); return { ok: true, method: 'telegram', link }; } catch (e) {}
+  }
+  if (navigator.share) {
+    try { await navigator.share({ title, text, url: link }); return { ok: true, method: 'share', link }; }
+    catch (e) { if (e && e.name === 'AbortError') return { ok: false, method: 'share', aborted: true, link }; }
+  }
+  const copied = await copyText(text ? `${text}\n${link}` : link);
+  return { ok: copied, method: 'copy', link };
+}
+
+export async function copyInvite(botUsername, text) {
+  const link = inviteLink(botUsername);
+  const copied = await copyText(text ? `${text}\n${link}` : link);
+  return { ok: copied, method: 'copy', link };
 }
