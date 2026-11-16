@@ -2,7 +2,7 @@
 import { AUTOPLAY } from './config.js';
 import { IMG, BG, pick } from './assets.js?v7';
 import { haptic as _haptic } from './platform.js';
-import { SFX as _SFX } from './audio.js';
+import { SFX as _SFX } from './audio.js?v2';
 /* fairness check: the night is fast-forwarded silently once before play (SIM), see fairScale() */
 let SIM = false;
 const SFX = new Proxy(_SFX, { get: (t, k) => SIM ? () => {} : t[k] });

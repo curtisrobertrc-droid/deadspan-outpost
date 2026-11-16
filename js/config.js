@@ -1,7 +1,7 @@
 // Deadspan: Outpost: runtime config. Monetisation is OFF until filled in.
 export const CFG = {
   GAME_NAME: 'Deadspan: Outpost',
-  VERSION: '0.1.0',
+  VERSION: '0.1.1',
   BOT_USERNAME: 'DeadspanGameBot',     // same bot as Deadspan
   MINI_APP_SHORT_NAME: '',     // e.g. 'outpost' (via /newapp on the same bot)
   ADSGRAM_BLOCK_ID: '',        // separate AdsGram Rewarded block for this game

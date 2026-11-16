@@ -125,7 +125,7 @@ export function createMeta(o) {
       const b = el(`<button class="tab ${tab === k ? 'on' : ''}">${n}${k === 'pass' && claimable() ? '<i class="dot"></i>' : ''}</button>`); b.onclick = () => { tab = k; render(); }; tabs.appendChild(b);
     }
     const body = modal.querySelector('#mBody'); body.innerHTML = '';
-    modal.querySelector('#mTitle').textContent = { daily: 'Style shop', coll: 'Collection', pass: 'Season pass', ranks: 'Leaderboards' }[tab];
+    modal.querySelector('#mTitle').textContent = { daily: 'Style shop', coll: 'Collection', pass: 'Season pass', ranks: o.portal ? 'Your records' : 'Leaderboards' }[tab];
     if (tab === 'daily') {
       const ms = Date.parse(dayKey() + 'T00:00:00Z') + 864e5 - Date.now(), h = Math.floor(ms / 36e5), m = Math.floor(ms % 36e5 / 6e4);
       body.appendChild(el(`<p class="note">New items every day · refreshes in ${h}h ${m}m · cosmetic only, no gameplay boost</p>`));

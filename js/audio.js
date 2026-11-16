@@ -1,11 +1,11 @@
 // Tiny WebAudio synth — no audio files needed.
-let ctx = null, master = null, on = true;
+let ctx = null, master = null, on = true, muted = false;
 export function setSound(v) { on = v; }
-export function setAdMute(m) { try { if (master) master.gain.value = m ? 0 : 0.25; } catch (e) {} }
+export function setAdMute(m) { muted = !!m; try { if (master) master.gain.value = muted ? 0 : 0.25; } catch (e) {} }
 // iOS: resume the AudioContext on touchend
 document.addEventListener('touchend', () => { if (ctx && ctx.state === 'suspended') ctx.resume(); }, { passive: true });
 function ac() {
-  if (!ctx) { try { ctx = new (window.AudioContext || window.webkitAudioContext)(); master = ctx.createGain(); master.gain.value = 0.25; master.connect(ctx.destination); } catch (e) { return null; } }
+  if (!ctx) { try { ctx = new (window.AudioContext || window.webkitAudioContext)(); master = ctx.createGain(); master.gain.value = muted ? 0 : 0.25; master.connect(ctx.destination); } catch (e) { return null; } }
   if (ctx.state === 'suspended') ctx.resume();
   return ctx;
 }

@@ -1,13 +1,13 @@
 import { CFG, AUTOPLAY, DEVOK } from './config.js';
-import { IS_PORTAL, TARGET, gameplay, loadingDone, PortalAds, onAdMute, portalScore } from './portal.js?v2';
+import { IS_PORTAL, TARGET, gameplay, loadingDone, PortalAds, onAdMute, portalScore, happytime } from './portal.js?v3';
 import { tg, initPlatform, inTelegram, loadLocal, loadCloud, save, haptic, startParam, shareInvite, copyInvite, inviteLink, userId } from './platform.js';
 import { Ads } from './ads.js';
 import { Payments } from './payments.js';
-import { setSound, setAdMute, unlockAudio, SFX } from './audio.js';
+import { setSound, setAdMute, unlockAudio, SFX } from './audio.js?v2';
 onAdMute(setAdMute);
-import { Game, fmt, nightInfo, PERKS, TIERS } from './game.js?v8';
+import { Game, fmt, nightInfo, PERKS, TIERS } from './game.js?v9';
 import { loadAssets } from './assets.js?v7';
-import { createMeta } from './meta.js?v11';
+import { createMeta } from './meta.js?v12';
 import { CATALOG, CATS, applyTo } from './catalog.js?v7';
 
 initPlatform();
@@ -128,6 +128,7 @@ function showResult(r) {
   S.runs++; gameplay(false); lastWin = r.win;
   $('#resTitle').textContent = r.win ? (nightInfo(r.N).boss ? 'BOSS SLAIN!' : 'YOU SURVIVED!') : 'WALL BREACHED!';
   $('#resTitle').className = r.win ? 'win' : 'lose';
+  if (r.win && nightInfo(r.N).boss) happytime();
   $('#resSub').textContent = r.win ? `Night ${r.N} · ${r.kills} zombies · best turret ${TIERS[r.tier].name}` : `Night ${r.N} · wave ${r.wave}/${r.waves} · ${r.kills} zombies`;
   $('#resCoins').textContent = '+' + fmt(r.coins);
   meta.addXp(r.kills * 0.5 + (r.win ? 40 + r.N * 2 : 10));

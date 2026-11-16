@@ -4,16 +4,22 @@ export const TARGET = window.PORTAL || 'telegram';
 export const IS_PORTAL = TARGET !== 'telegram';
 const ADS_ON = window.PORTAL_ADS !== false;
 let cg = null, poki = null, playing = false, inAd = false, plays = 0;
-let muteHook = () => {};
+let muteHook = () => {}, adMuted = false, sdkMuted = false;
+const applyMute = () => { try { muteHook(adMuted || sdkMuted); } catch (e) {} };
 const log = []; if (new URLSearchParams(location.search).get('qa') === '1') window.__portalEv = log; // QA only
 const ev = n => { log.push(n); if (log.length > 200) log.shift(); };
-export function onAdMute(fn) { muteHook = fn; }
+export function onAdMute(fn) { muteHook = fn; applyMute(); }
 
 const timeout = (p, ms) => Promise.race([p, new Promise(r => setTimeout(r, ms))]);
 export async function initPortal() {
   if (TARGET === 'crazygames' && window.CrazyGames && window.CrazyGames.SDK) {
     try { await timeout(window.CrazyGames.SDK.init(), 5000); const s = window.CrazyGames.SDK; if (s.environment && s.environment !== 'disabled') cg = s; } catch (e) { console.warn('CrazyGames SDK init failed', e); }
     try { cg && cg.game.loadingStart(); } catch (e) {}
+    // CrazyGames "muteAudio" setting overrides the in-game sound toggle (Full Launch requirement)
+    try {
+      if (cg && cg.game.settings) { sdkMuted = !!cg.game.settings.muteAudio; applyMute(); }
+      cg && cg.game.addSettingsChangeListener && cg.game.addSettingsChangeListener(s => { sdkMuted = !!(s && s.muteAudio); ev('muteAudio:' + sdkMuted); applyMute(); });
+    } catch (e) {}
   }
   if (TARGET === 'poki' && window.PokiSDK) {
     // Poki: if init fails (e.g. adblock) the game must still load; the SDK calls stay safe no-ops.
@@ -46,9 +52,12 @@ export function gameplay(on) {
   try { poki && (on ? poki.gameplayStart() : poki.gameplayStop()); } catch (e) {}
 }
 
+// Celebration on the portal page (CrazyGames confetti) for special moments only: boss down, new endless best.
+export function happytime() { ev('happytime'); try { cg && cg.game.happytime(); } catch (e) {} }
+
 // Full-screen input blocker + mute while an ad plays.
-function adBegin() { ev('adStart'); inAd = true; muteHook(true); let b = document.getElementById('adBlock'); if (!b) { b = document.createElement('div'); b.id = 'adBlock'; b.style.cssText = 'position:fixed;inset:0;z-index:9999;background:transparent'; document.body.appendChild(b); } b.style.display = 'block'; }
-function adEnd() { ev('adEnd'); inAd = false; muteHook(false); const b = document.getElementById('adBlock'); if (b) b.style.display = 'none'; }
+function adBegin() { ev('adStart'); inAd = true; adMuted = true; applyMute(); let b = document.getElementById('adBlock'); if (!b) { b = document.createElement('div'); b.id = 'adBlock'; b.style.cssText = 'position:fixed;inset:0;z-index:9999;background:transparent'; document.body.appendChild(b); } b.style.display = 'block'; }
+function adEnd() { ev('adEnd'); inAd = false; adMuted = false; applyMute(); const b = document.getElementById('adBlock'); if (b) b.style.display = 'none'; }
 const cgAd = type => new Promise(res => {
   let done = false; const fin = ok => { if (done) return; done = true; adEnd(); res(ok); };
   try {

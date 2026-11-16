@@ -1,5 +1,5 @@
 // Telegram WebApp wrapper + persistence (localStorage, mirrored to Telegram CloudStorage when available).
-import { store } from './portal.js?v2';
+import { store } from './portal.js?v3';
 const W = window.Telegram && window.Telegram.WebApp;
 export const tg = W || null;
 export const inTelegram = !!(W && W.initData);
